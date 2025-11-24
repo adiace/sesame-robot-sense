@@ -51,27 +51,29 @@ You will need the following libraries installed in your Arduino IDE:
 
 ### Setup
 
-1.  Connect your servos to the PCA9685 board (Channels 0-7).
-2.  Connect the OLED via I2C (Address `0x3C`).
-3.  Upload `firmware.c` (rename to `.ino` for Arduino IDE) to your board.
-4.  Open the Serial Monitor at **9600 baud**.
+1.  **Board Setup:** Select your specific ESP32 board in the Arduino IDE Tools menu.
+2.  **Connections:**
+    *   Connect servos to the PCA9685 board (Channels 0-7).
+    *   Connect the PCA9685 SDA/SCL pins to the standard I2C pins on your ESP32.
+    *   Connect the OLED via I2C.
+3.  **Network Configuration:** Open the firmware file and configure your desired Access Point name (SSID) and password, or set it to connect to your home router.
+4.  **Upload:** Upload the firmware to the ESP32.
+5.  **Monitor:** Open the Serial Monitor at **115200 baud** to see the assigned IP address.
 
-### Serial Commands
+### WiFi Controller Usage
 
-Sesame features a built-in Command Line Interface (CLI). Type these commands into the Serial Monitor to control the robot:
+Once the robot is powered on:
 
-| Command | Arguments | Description |
-| :--- | :--- | :--- |
-| `run` | `rest` | Robot goes to sleep/rest mode. |
-| `run` | `stand` | Robot stands up. |
-| `run` | `walk` | Initiates the walking cycle. |
-| `run` | `wave` | Robot waves hello. |
-| `run` | `dance` | Robot performs a dance. |
-| `run` | `swim` | Robot performs a swimming motion. |
-| `run` | `point` | Robot points with a limb. |
-| `set` | `<ch> <angle>` | Set specific servo (0-15) to angle (0-180). |
-| `set` | `all <angle>` | Set **all** servos to a specific angle. |
-| `set` | `seq <angle>` | Set servos sequentially (good for testing). |
+1.  Connect your phone or computer to the Robot's WiFi network (or the network the robot is connected to).
+2.  Enter the IP address printed in the Serial Monitor into your web browser (e.g., `192.168.4.1`).
+3.  A graphical interface will load featuring buttons for all available poses:
+    *   **Rest:** Robot goes to sleep/rest mode.
+    *   **Stand:** Robot stands up.
+    *   **Walk:** Initiates the walking cycle.
+    *   **Wave:** Robot waves hello.
+    *   **Dance:** Robot performs a dance.
+    *   **Swim:** Robot performs a swimming motion.
+    *   **Point:** Robot points with a limb.
 
 ## Customizing Faces
 
@@ -95,6 +97,7 @@ If you do not have a 3D printer or prefer to get all the hardware in one box, li
 This robot is a platform for building new features and ideas. Since the current firmware is a basic implementation, pull requests are very welcome for:
 *   Kinematics improvements
 *   New animations
+*   Improved Web UI/UX
 *   Sensor integration (Ultrasonic, Gyro, etc.)
 
 ---
