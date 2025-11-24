@@ -1,4 +1,4 @@
-# Sesame: The Quadruped for Everyone!
+# The Sesame Robot Project
 
 <img width="963" height="618" alt="sesamehi" src="https://github.com/user-attachments/assets/b6bd7157-87c9-4e10-ac91-b82226e93337" />
 
