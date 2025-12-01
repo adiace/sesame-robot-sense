@@ -1,6 +1,6 @@
-# The Sesame Robot Project
+<img width="95%" height="400" alt="The Sesame Robot Project" src="https://github.com/user-attachments/assets/44ea35e2-804a-42ac-b31d-b1dfb70c65ec" />
 
-<img width="963" height="618" alt="sesamehi" src="https://github.com/user-attachments/assets/b6bd7157-87c9-4e10-ac91-b82226e93337" />
+<img width="95%" height="464" alt="erasebg-transformed" src="https://github.com/user-attachments/assets/618835cb-67ce-4ef8-8665-5901b85836eb" />
 
 **Greetings, from your new best friend.**
 
@@ -92,7 +92,7 @@ If you do not have a 3D printer or prefer to get all the hardware in one box, li
 *   **Store Link:** [Link to your store here]
 
 ## Contributing
-<img width="2464" height="1728" alt="sesame-customize" src="https://github.com/user-attachments/assets/b3b51c94-483d-457e-9645-a0548705dbc7" />
+<img width="95%" height="1728" alt="Untitled (7)" src="https://github.com/user-attachments/assets/9d7d88cb-b012-4611-9419-e154bb006078" />
 
 This robot is a platform for building new features and ideas. Since the current firmware is a basic implementation, pull requests are very welcome for:
 *   Kinematics improvements
