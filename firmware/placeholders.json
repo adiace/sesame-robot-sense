@@ -1,0 +1,17 @@
+const unsigned char epd_bitmap_walk [] PROGMEM = { 0x00 }; 
+const unsigned char epd_bitmap_rest [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_swim [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_dance [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_wave [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_point [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_stand [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_cute [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_pushup [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_freaky [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_bow [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_worm [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_shake [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_shrug [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_dead [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_crab [] PROGMEM = { 0x00 };
+const unsigned char epd_bitmap_defualt [] PROGMEM = { 0x00 };
