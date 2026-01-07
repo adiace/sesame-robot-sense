@@ -1,6 +1,15 @@
 # Software
 
-Software applications for controlling the Sesame Robot.
+Software applications for making the most of your Sesame Robot.
 
-- **web-ui/** - Web-based user interface
-- **control-app/** - Desktop or mobile control applications
+## Tools
+
+### [Sesame Studio](sesame-studio/)
+A visual Python-based tool for creating animations.
+
+- **Graphical Interface**: layout joints on screen with guides.
+- **Code Generator**: outputs C++ code ready for the firmware.
+
+[Go to Sesame Studio Documentation ->](sesame-studio/README.md)
+
+
