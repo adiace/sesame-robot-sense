@@ -7,20 +7,18 @@ ___
 ![GitHub stars](https://img.shields.io/github/stars/dorianborian/sesame-robot?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/dorianborian/sesame-robot?style=social)
 
-
-<img width="95%" height="1851" alt="sesame-wide" src="https://github.com/user-attachments/assets/84ea4e49-6fb9-46db-a336-ad07526de633" />
+<img width="100%" height="728" alt="sesame-cover" src="https://github.com/user-attachments/assets/f0cc6ad0-135b-4515-8750-900f224ed7ae" />
 
 ___
 
 **Greetings, from your new best friend.**
 
-Sesame is an accessible Open-Source robotics project based on the ESP32 microcontroller system, with an emphasis on expression and movement. This project is designed for makers and engineers of all skill levels. Sesame offers a dynamic platform designed to start working with walking robots. To build a sesame robot, you will need soldering skills, a soldering iron with a small tip, various hardware components, access to a 3D printer, and a basic understanding of Arduino IDE and how to communicate with the ESP32 over serial and WiFi.
+Sesame is an accessible Open-Source robotics project based on the ESP32 microcontroller system, with an emphasis on expression and movement. 
+This project is designed for makers and engineers of all skill levels! Sesame offers a dynamic platform designed to start working with walking robots. 
+To build a sesame robot, you will need basic soldering skills, $50-60 in hardware components, access to a 3D printer, and a basic understanding of Arduino IDE.
 
-This repository contains the CAD design files, STL files for the newest hardware revision, a list of all needed and alternate components, and the base/expanded firmware for the ESP32-based controller. There is also some included debugging firmware that may be helpful in getting your Sesame up and running.
-
-> [!WARNING]
-> This Repository is under Construction! Details are subject to change.
-
+This repository contains the CAD design files, STL files, build and wiring guides, and the base/expanded firmware for the ESP32-based controller. 
+There is also some included debugging firmware that may be helpful in getting your Sesame up and running.
 
 ## Features
 
@@ -69,6 +67,8 @@ Sesame Studio is a standalone desktop application included in `software/sesame-s
 
 [**> Go to Sesame Studio**](software/sesame-studio/README.md)
 
+<img width="50%" height="925" alt="sesamestudio-preview" src="https://github.com/user-attachments/assets/589de8ec-5895-4d5a-aadf-dd944e42172f" />
+
 ### Firmware
 The ESP32 firmware handles the kinematics, face display, and WiFi control interface.
 *   **Web UI:** Control the robot from your phone via the built-in Access Point.
@@ -76,16 +76,22 @@ The ESP32 firmware handles the kinematics, face display, and WiFi control interf
 
 [**> Go to Firmware Docs**](firmware/README.md)
 
+<img width="50%" height="1164" alt="firmware-preview" src="https://github.com/user-attachments/assets/31da32af-55a4-45e9-99ca-ff8f9b4767cd" />
+
 ---
 
 ## Contributing
 
-This robot is a platform for building new features and ideas. Since the current firmware is a basic implementation, pull requests are very welcome for:
+This robot is a platform for building new features, cosmetics, tools, and ideas. Since the current firmware is a basic implementation, pull requests are very welcome for:
 *   Kinematics improvements
 *   New animations
 *   Improved Web UI/UX
 *   Sensor integration (Ultrasonic, Gyro, etc.)
 
+I would also love to see forks of this project with new hardware, software, faces, etc. Be sure to send me a message if you end up building one, and I might feature you on my website or channel!
+  
+<img width="100%" height="1205" alt="sesame-army" src="https://github.com/user-attachments/assets/63dcb22d-bac7-4052-b3a1-251ad635d380" />
+
 ---
 
-*Created by [Dorian Todd]. Need help with your Sesame Robot? Send me a message on Discord, my username is "starphee"*
+*Created by [Dorian Todd](https://www.doriantodd.com/). Need help with your Sesame Robot? Send me a message on Discord, my username is "starphee"*
