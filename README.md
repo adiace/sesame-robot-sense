@@ -9,8 +9,8 @@ ___
 
 
 <img width="95%" height="1851" alt="sesame-wide" src="https://github.com/user-attachments/assets/84ea4e49-6fb9-46db-a336-ad07526de633" />
----
 
+___
 
 **Greetings, from your new best friend.**
 

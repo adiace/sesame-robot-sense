@@ -18,7 +18,7 @@ Here's what a complete set of sesame parts looks like:
 
 After we have all of our parts, we can start by getting the wiring about 90% done, the last bit requires progress on the frame.
 
-Follow the [wiring guide for your specific setup](../../wiring-guide/README.md), either the Sesame Distro Board or the Lolin S2 Mini hand-wired setup.
+Follow the [wiring guide for your specific setup](../wiring-guide/README.md), either the Sesame Distro Board or the Lolin S2 Mini hand-wired setup.
 
 Complete all steps in the wiring guide, but don't connect the power switch, and OLED display just yet. We will wire these in once the board is installed in the frame.
 
