@@ -2,7 +2,7 @@
 
 Sesame Studio is a animation composer tool for the Sesame Robot. Use it to set servo angles and frames, generate C++ code, and sequence frames into animations.
 
-![Sesame Studio Interface](assets/sesamestudio-preview.png)
+<img src="assets/sesamestudio-preview.png" alt="sesamestudio-preview" width="50%">
 
 ## Features
 
