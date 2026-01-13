@@ -15,14 +15,16 @@ Pick the approach that matches your component availability and comfort with mana
 
 ## How to wire the S2 Mini / Hand Wiring
 
-The S2 Mini method is a traditional protoboard build. Consult the [S2 Mini wiring diagram](s2-mini-wiring-guide.png) while reading this section; it captures every motor, sensor, OLED, and button lead even if the photos only show a subset of the connections. Expect a high connection count, so plan wire lengths and colors before soldering to avoid confusion later.
+The S2 Mini method is a traditional protoboard build. Consult the S2 Mini wiring diagram below while reading this section; it captures every motor, sensor, OLED, and button lead even if the photos only show a subset of the connections. Expect a high connection count, so plan wire lengths and colors before soldering to avoid confusion later.
+
+<img src="s2-mini-wiring-guide.png" alt="S2 Mini wiring diagram" width="70%">
 
 ### Prep
 
 1. **Secure and tin** all of the connections on the board before starting
 2. To connect all the 3-pin headers together and to the board, first attach them to a small section of protoboard
 
-![proto-headers](assets/proto-headers.png)
+<img src="assets/proto-headers.png" alt="proto-headers" width="70%">
 
 ### Building Power and Ground Rails
 
@@ -30,7 +32,7 @@ The S2 Mini method is a traditional protoboard build. Consult the [S2 Mini wirin
 2. Solder this exposed wire to every middle pin (this creates the **5V rail**)
 3. Do the same for the ground lane (this creates the **ground rail**)
 
-![proto-power-rails](assets/proto-power-rails.png)
+<img src="assets/proto-power-rails.png" alt="proto-power-rails" width="70%">
 
 ### Data Lines
 
@@ -41,7 +43,7 @@ You can now cut eight equal-length wires for data connections.
 - **Power and ground:** 22AWG silicone wire
 - **Important:** Things will get super cluttered if you use large gauge wire
 
-![proto-data-lines](assets/proto-datalines.png)
+<img src="assets/proto-datalines.png" alt="proto-data-lines" width="70%">
 
 Alongside the eight motor data leads, the diagram also calls out the OLED connections that branch from the microcontroller.
 
@@ -53,7 +55,7 @@ When packing electronics into the frame, it's difficult with the hand wiring set
 2. Use zip ties and heat shrink tubing to make them as compact as possible
 3. Consider connecting the power switch after finishing most other wiring, since it's attached to the top cover
 
-![wire-managment](assets/wire-managment.png)
+<img src="assets/wire-managment.png" alt="wire-managment" width="70%">
 
 ### Safety and Testing
 
@@ -77,7 +79,9 @@ When packing electronics into the frame, it's difficult with the hand wiring set
 > The distro board is mounted on top of the ESP32 devkit, like a hat. 
 
 This option provides a cleaner, more organized wiring solution.
-Consult the [distro-board wiring diagram](distro-board-wiring-guide.png) for exact connection locations.
+Consult the distro-board wiring diagram below for exact connection locations.
+
+<img src="distro-board-wiring-guide.png" alt="distro-board wiring diagram" width="70%">
 
 ### Component Installation
 

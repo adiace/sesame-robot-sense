@@ -33,7 +33,7 @@ Every part required to assemble Sesame is cataloged here. Pick the wiring strate
 | Item | Qty | Notes | Amazon |
 | --- | --- | --- | --- |
 | ESP32-DevKitC-32E (ESP32-WROOM-32) | 1 | Base board the distro PCB stacks on. This one is very tricky because its a very specific board. You can use the 32E with the floating pcb antenna OR you can use the 32U but you have to route an antenna inside. | [link](https://www.amazon.com/s?k=ESP32+DevKitC+32) |
-| Sesame Distro Board PCB | 1 | Order `Gerber_Sesame-Distro-Board_PCB_Sesame-Distro-Board_V1.zip` via PCBway/JLC | [link](https://www.amazon.com/s?k=pcb+fabrication+service) |
+| Sesame Distro Board PCB | 1 | Order `Gerber_Sesame-Distro-Board_PCB_Sesame-Distro-Board_V1.zip` via PCBway | [link](/hardware/pcb/README.md) |
 | 5 V buck converter (same spec as above) | 1 | Mounts on the distro board pads | [link](https://www.amazon.com/s?k=5a+dc+dc+buck+converter+module) |
 | 4-pin JST-XH or PH header | 1 | Optional external connector footprint on PCB | [link](https://www.amazon.com/s?k=jst+xh+4+pin+kit) |
 | 2-pin screw terminal (5.08 mm) | 1 | Optional battery input on PCB | [link](https://www.amazon.com/s?k=2+pin+screw+terminal+block) |

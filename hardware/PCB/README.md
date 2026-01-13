@@ -9,15 +9,16 @@ This project was sponsored by [PCBway](https://www.pcbway.com/), who manufacture
 
 If you're building your own Sesame Robot, PCBway is a great option for getting professional-quality distro boards manufactured at reasonable prices.
 
-
+<img src="pcbs.png" alt="pcbs-from-pcbway" width="70%">
 
 ## Board Schematic:
 
-![sesame-distro-schem](Schematic_Sesame-Distro-Board.png)
+<img src="Schematic_Sesame-Distro-Board.png" alt="Schematic_Sesame-Distro-Board" width="70%">
 
 
 ### PCB Layout:
-![alt text](SDB-Layout.png)
+<img src="SDB-Layout.png" alt="SDB-Layout" width="70%">
+
 
 
 ## How to order one:

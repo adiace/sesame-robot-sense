@@ -31,4 +31,4 @@ Use the sections below to jump to the files that match the version you are assem
 - [docs/build-guide/README.md](../docs/build-guide/README.md) for end-to-end assembly sequencing.
 - [docs/wiring-guide/README.md](../docs/wiring-guide/README.md) for wiring diagrams, safety notes, and packing tips.
 
-Improvements, remixes, and test reports are welcome—file issues or PRs with any updates you discover while building. <3
+Improvements, remixes, and test reports are welcome, file issues or PRs with any updates you discover while building. <3
