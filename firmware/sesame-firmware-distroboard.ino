@@ -404,7 +404,7 @@ void setup() {
   
   for (int i = 0; i < 8; i++) {
     servos[i].setPeriodHertz(50);
-    // Map 0-180 to approx 732-2929 us to match previous PCA9685 settings
+    // Map 0-180 to approx 732-2929us
     servos[i].attach(servoPins[i], 732, 2929);
   }
   delay(10);
