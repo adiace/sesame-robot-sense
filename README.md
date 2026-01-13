@@ -29,6 +29,11 @@ There is also some included debugging firmware that may be helpful in getting yo
 *   **Serial CLI:** Control the robot and trigger animations via a Serial Command Line Interface or the web UI.
 *   **Pre-programmed Emotes:** Includes animations for Walking, Waving, Dancing, Pointing, Resting, and more.
 
+
+## Watch the launch video on YouTube
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/1UDsWkcQZhc" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Getting Started
 
 Follow these steps to build your own Sesame Robot:
