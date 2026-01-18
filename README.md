@@ -34,6 +34,8 @@ There is also some included debugging firmware that may be helpful in getting yo
 
 <a href="https://www.youtube.com/watch?v=1UDsWkcQZhc"><img src="https://github.com/user-attachments/assets/710cb5a6-163e-47e7-a294-5e2d2ab07627" width="70%" alt="thumb-youtube"></a>
 
+___
+
 ## Getting Started
 
 Follow these steps to build your own Sesame Robot:
@@ -59,6 +61,8 @@ Upload the code from the **[Firmware Directory](firmware/README.md)**.
 
 ### 5. Create Animations 
 Use **[Sesame Studio](software/sesame-studio/README.md)** to visually design poses and sequences for your robot.
+
+<img width="100%" height="728" alt="sesame-wakeup-gif" src="https://github.com/user-attachments/assets/a4951195-4253-40a4-a87d-d14fad57ff5f" />
 
 ---
 
@@ -95,7 +99,14 @@ This robot is a platform for building new features, cosmetics, tools, and ideas.
 
 I would also love to see forks of this project with new hardware, software, faces, etc. Be sure to send me a message if you end up building one, and I might feature you on my website or channel!
   
-<img width="100%" height="1205" alt="sesame-army" src="https://github.com/user-attachments/assets/63dcb22d-bac7-4052-b3a1-251ad635d380" />
+---
+
+## Sesame Complete Build Kit Pre-orders available!
+I am excited to announce that, after popular demand, Sesame Complete Build Kits are now available for pre-order! 
+
+That's right, your little robot companion just got even easier to build. Each kit includes all the components you need to build a full Sesame Robot. With the included detailed instructions, guides, and resources, this kit is perfect for both seasoned Makers and beginners. Click the image below to learn more.
+
+<a href="https://www.doriantodd.com/sesame/kit"><img src="https://github.com/user-attachments/assets/6d438981-2714-408d-a250-fda64f22c4d1" width="70%" alt="kits-availible"></a>
 
 ---
 
