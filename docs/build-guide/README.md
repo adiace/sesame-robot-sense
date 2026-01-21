@@ -92,7 +92,9 @@ Repeat for the remaining feet so every motor already has its foot once calibrati
 
 ### Top Cover
 
-The final pre-assembly step is loading the OLED and power switch into the top cover so the shell is ready for final wiring later.
+The final pre-assembly step is loading the OLED and power switch into the top cover so the shell is ready for final wiring later. Since there are two main styles of top cover (Enclosed and Original) I will go over both.
+
+#### Original Top Cover:
 
 1. Slide the OLED display into the front slot until the bezel sits flush.
 
@@ -102,14 +104,33 @@ The final pre-assembly step is loading the OLED and power switch into the top co
 
 <img src="assets/securing-display.png" alt="securing-display" width="70%">
 
-3. Remove the factory pin header if it interferes with clearance. Either heat all four pins at once and pull, or clip them flush with snips.
+#### Enclosed Top Cover:
+
+1. Wire the data, power, and ground wires to the OLED display. 
+
+<img src="assets/display-wires.png" alt="display-wires" width="70%">
+
+1. Push the OLED display into the front slot through the inside of the top cover.
+
+<img src="assets/insert-display-enclosed.png" alt="insert-display-enclosed" width="70%">
+
+2. If the fit is loose, drive two M2 × 4 mm screws through the angled holes in the ears to clamp the PCB. You can also use a drop of removable hot glue to keep it in place.
+
+<img src="assets/securing-display-enclosed.png" alt="securing-display" width="70%">
+
+#### Both:
+
+3. Remove the factory pin header as it interferes with clearance. Either heat all four pins at once and pull, or clip them flush with snips.
 
 <img src="assets/remove-headers.png" alt="remove-headers" width="70%">
 
-4. Flip the cover and press-fit the rocker switch into the square cutout. Trim extra plastic on the switch housing if it refuses to seat.
+4. Flip the cover and press-fit the rocker switch into the square cutout. Trim extra plastic on the switch housing if it refuses to seat. 
+
+<img src="assets/switch-insert.png" alt="insert-rocker-switch" width="70%">
+
 
 > [!NOTE]
-> Leave the switch leads long for now; you will trim and solder them after the electronics stack is inside the frame.
+> You can bend the rocker switch leads flat to make it fit better with the wires inside the top cover.
 
  
 **Phase 3 checklist**
@@ -225,7 +246,7 @@ Finish by driving the provided servo screw (or an M2 machine screw if you need e
 
 <img src="assets/press-on-bottom-cover.png" alt="push-on-bottom-cover" width="70%">
 
-3. Secure the plate with six M2 × 10 mm self-threading screws.
+3. Secure the plate with two M2 × 5 mm self-threading screws.
 
 <img src="assets/screw-on-bottom-cover.png" alt="screw-on-bottom-cover" width="70%">
 
