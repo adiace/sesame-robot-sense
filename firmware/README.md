@@ -49,11 +49,39 @@ The firmware is built on the Arduino-ESP32 framework. Currently the firmware is 
 
 The firmware abstracts pin definitions via the `servoPins` array. The default configuration is optimized for the **Sesame Distro Board** and **Lolin S2 Mini**, but is easily portable to any ESP32 with WiFi capability (e.g., S3, C3, or DevKit V1).
 
-| Component | Default GPIO | Notes |
-|-----------|--------------|-------|
-| SDA       | 33           | SSD1306 Data (Hardware I2C) |
-| SCL       | 35           | SSD1306 Clock (Hardware I2C) |
-| Servos    | 1, 2, 4, 6...| Hardware PWM / ESP32PWM Timers |
+### Pin Configuration Tables
+
+#### Lolin S2 Mini (ESP32-S2)
+
+| Motor/Component | Array Index | GPIO Pin | Notes |
+|-----------------|-------------|----------|-------|
+| Motor 0 | 0 | 1 | Front Left Hip |
+| Motor 1 | 1 | 2 | Front Left Knee |
+| Motor 2 | 2 | 4 | Front Right Hip |
+| Motor 3 | 3 | 6 | Front Right Knee |
+| Motor 4 | 4 | 8 | Back Left Hip |
+| Motor 5 | 5 | 10 | Back Left Knee |
+| Motor 6 | 6 | 13 | Back Right Hip |
+| Motor 7 | 7 | 14 | Back Right Knee |
+| **I2C SDA** | - | **33** | SSD1306 Data (Hardware I2C) |
+| **I2C SCL** | - | **35** | SSD1306 Clock (Hardware I2C) |
+
+#### Sesame Distro Board (ESP32-WROOM32)
+
+| Motor/Component | Array Index | GPIO Pin | Notes |
+|-----------------|-------------|----------|-------|
+| Motor 0 | 0 | 15 | Front Left Hip |
+| Motor 1 | 1 | 2 | Front Left Knee |
+| Motor 2 | 2 | 23 | Front Right Hip |
+| Motor 3 | 3 | 19 | Front Right Knee |
+| Motor 4 | 4 | 4 | Back Left Hip |
+| Motor 5 | 5 | 16 | Back Left Knee |
+| Motor 6 | 6 | 17 | Back Right Hip |
+| Motor 7 | 7 | 18 | Back Right Knee |
+| **I2C SDA** | - | **21** | SSD1306 Data (Hardware I2C) |
+| **I2C SCL** | - | **22** | SSD1306 Clock (Hardware I2C) |
+
+### Porting to Other ESP32 Variants
 
 To port this to a different ESP32 variant, modify the `servoPins` and `I2C_` defines in the header of [sesame-firmware-main.ino](sesame-firmware-main.ino). Ensure the chosen pins are PWM-capable and not "input-only".
 
