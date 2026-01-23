@@ -55,14 +55,14 @@ The firmware abstracts pin definitions via the `servoPins` array. The default co
 
 | Motor/Component | Array Index | GPIO Pin | Notes |
 |-----------------|-------------|----------|-------|
-| Motor 0 | 0 | 1 | Front Left Hip |
-| Motor 1 | 1 | 2 | Front Left Knee |
-| Motor 2 | 2 | 4 | Front Right Hip |
-| Motor 3 | 3 | 6 | Front Right Knee |
-| Motor 4 | 4 | 8 | Back Left Hip |
-| Motor 5 | 5 | 10 | Back Left Knee |
-| Motor 6 | 6 | 13 | Back Right Hip |
-| Motor 7 | 7 | 14 | Back Right Knee |
+| Motor 0 | 0 | 1 | R1 |
+| Motor 1 | 1 | 2 | R2 |
+| Motor 2 | 2 | 4 | L1 |
+| Motor 3 | 3 | 6 | L2 |
+| Motor 4 | 4 | 8 | R4 |
+| Motor 5 | 5 | 10 | R3 |
+| Motor 6 | 6 | 13 | L3 |
+| Motor 7 | 7 | 14 | L4 |
 | **I2C SDA** | - | **33** | SSD1306 Data (Hardware I2C) |
 | **I2C SCL** | - | **35** | SSD1306 Clock (Hardware I2C) |
 
@@ -70,14 +70,14 @@ The firmware abstracts pin definitions via the `servoPins` array. The default co
 
 | Motor/Component | Array Index | GPIO Pin | Notes |
 |-----------------|-------------|----------|-------|
-| Motor 0 | 0 | 15 | Front Left Hip |
-| Motor 1 | 1 | 2 | Front Left Knee |
-| Motor 2 | 2 | 23 | Front Right Hip |
-| Motor 3 | 3 | 19 | Front Right Knee |
-| Motor 4 | 4 | 4 | Back Left Hip |
-| Motor 5 | 5 | 16 | Back Left Knee |
-| Motor 6 | 6 | 17 | Back Right Hip |
-| Motor 7 | 7 | 18 | Back Right Knee |
+| Motor 0 | 0 | 15 | R1 |
+| Motor 1 | 1 | 2 | R2 |
+| Motor 2 | 2 | 23 | L1 |
+| Motor 3 | 3 | 19 | L2 |
+| Motor 4 | 4 | 4 | R4 |
+| Motor 5 | 5 | 16 | R3 |
+| Motor 6 | 6 | 17 | L3 |
+| Motor 7 | 7 | 18 | L4 |
 | **I2C SDA** | - | **21** | SSD1306 Data (Hardware I2C) |
 | **I2C SCL** | - | **22** | SSD1306 Clock (Hardware I2C) |
 
