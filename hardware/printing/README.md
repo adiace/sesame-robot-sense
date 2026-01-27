@@ -22,8 +22,8 @@ Note: There are 3 different top cover styles currently. Cat Enclosed, Enclosed, 
 | Joint L2        | No                | [femur-joint-L2-v71.stl](stl/femur-joint-L2-v71.stl) |
 | Joint L3        | No                | [foot-joint-L3-v71.stl](stl/foot-joint-L3-v71.stl) |
 | Joint L4        | No                | [foot-joint-L4-v71.stl](stl/foot-joint-L4-v71.stl) |
-| Internal Frame  | No                | [Interna-Frame-v71.stl](stl/Interna-Frame-v71.stl) |
-| Bottom Cover    | No                | [Bottom-Cover-v71.stl](stl/Bottom-Cover-v71.stl) |
+| Internal Frame  | No                | [Internal-Frame-v80.stl](stl/Internal-Frame-v80.stl) |
+| Bottom Cover    | No                | [Bottom-Cover-v80.stl](stl/Bottom-Cover-v80.stl) |
 | Top Cover       | Yes               | [Top Covers](stl/top-covers/) |
 
 
