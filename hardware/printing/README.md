@@ -14,16 +14,16 @@ Note: There are 3 different top cover styles currently. Cat Enclosed, Enclosed, 
 
 | Component       | Supports Required | STL Link |
 |-----------------|-------------------|----------|
-| Joint R1        | No                | [femur-joint-R1-v71.stl](stl/femur-joint-R1-v71.stl) |
-| Joint R2        | No                | [femurjoint-R2--v71.stl](stl/femurjoint-R2--v71.stl) |
-| Joint R3        | No                | [foot-joint-R3-v71.stl](stl/foot-joint-R3-v71.stl) |
-| Joint R4        | No                | [foot-joint-R4-v71.stl](stl/foot-joint-R4-v71.stl) |
-| Joint L1        | No                | [femur-joint-L1-v71.stl](stl/femur-joint-L1-v71.stl) |
-| Joint L2        | No                | [femur-joint-L2-v71.stl](stl/femur-joint-L2-v71.stl) |
-| Joint L3        | No                | [foot-joint-L3-v71.stl](stl/foot-joint-L3-v71.stl) |
-| Joint L4        | No                | [foot-joint-L4-v71.stl](stl/foot-joint-L4-v71.stl) |
-| Internal Frame  | No                | [Internal-Frame-v80.stl](stl/Internal-Frame-v80.stl) |
-| Bottom Cover    | No                | [Bottom-Cover-v80.stl](stl/Bottom-Cover-v80.stl) |
+| Joint R1        | No                | [femurjoint-R1-v90.stl](stl/femurjoint-R1-v90.stl) |
+| Joint R2        | No                | [femurjoint-R2-v90.stl](stl/femurjoint-R2-v90.stl) |
+| Joint R3        | No                | [foot-joint-R3-v90.stl](stl/foot-joint-R3-v90.stl) |
+| Joint R4        | No                | [foot-joint-R4-v90.stl](stl/foot-joint-R4-v90.stl) |
+| Joint L1        | No                | [femurjoint-L1-v90.stl](stl/femurjoint-L1-v90.stl) |
+| Joint L2        | No                | [femurjoint-L2-v90.stl](stl/femurjoint-L2-v90.stl) |
+| Joint L3        | No                | [foot-joint-L3-v90.stl](stl/foot-joint-L3-v90.stl) |
+| Joint L4        | No                | [foot-joint-L4-v90.stl](stl/foot-joint-L4-v90.stl) |
+| Internal Frame  | No                | [internal-frame-v90.stl](stl/internal-frame-v90.stl) |
+| Bottom Cover    | No                | [bottom-cover-v90.stl](stl/bottom-cover-v90.stl) |
 | Top Cover       | Yes               | [Top Covers](stl/top-covers/) |
 
 
