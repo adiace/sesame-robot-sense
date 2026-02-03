@@ -52,6 +52,14 @@ bool idleBlinkActive = false;
 unsigned long nextIdleBlinkMs = 0;
 uint8_t idleBlinkRepeatsLeft = 0;
 
+// WiFi Info Scrolling
+unsigned long lastInputTime = 0;
+bool firstInputReceived = false;
+bool showingWifiInfo = false;
+int wifiScrollPos = 0;
+unsigned long lastWifiScrollMs = 0;
+String wifiInfoText = "";
+
 // Servo Pins for Distro Board
 // ======================================================================
 // Pin numbers are coorisponding to the ESP32 GPIO pins and may differ based on which board you use.
@@ -139,6 +147,8 @@ int getFaceFpsForName(const String& faceName);
 bool pressingCheck(String cmd, int ms);
 void handleGetSettings();
 void handleSetSettings();
+void updateWifiInfoScroll();
+void recordInput();
 
 void handleRoot() {
   server.send(200, "text/html", index_html);
@@ -148,17 +158,31 @@ void handleCommandWeb() {
   // We send 200 OK immediately so the web browser doesn't hang waiting for animation to finish
   if (server.hasArg("pose")) {
     currentCommand = server.arg("pose");
+    recordInput();
     exitIdle();
     server.send(200, "text/plain", "OK"); 
   } 
   else if (server.hasArg("go")) {
     currentCommand = server.arg("go");
+    recordInput();
     exitIdle();
     server.send(200, "text/plain", "OK");
   } 
   else if (server.hasArg("stop")) {
     currentCommand = "";
+    recordInput();
     server.send(200, "text/plain", "OK");
+  }
+  else if (server.hasArg("motor") && server.hasArg("value")) {
+    int motorNum = server.arg("motor").toInt();
+    int angle = server.arg("value").toInt();
+    if (motorNum >= 1 && motorNum <= 8 && angle >= 0 && angle <= 180) {
+      setServoAngle(motorNum - 1, angle); // Convert 1-based to 0-based index
+      recordInput();
+      server.send(200, "text/plain", "OK");
+    } else {
+      server.send(400, "text/plain", "Invalid motor or angle");
+    }
   }
   else {
     server.send(400, "text/plain", "Bad Args");
@@ -211,17 +235,13 @@ void setup() {
   Serial.print("AP Created. IP: ");
   Serial.println(myIP);
 
-  // Show Connection Info on OLED
-  display.clearDisplay();
-  display.setCursor(0,0);
-  display.println(F("Connect to WiFi:"));
-  display.println(AP_SSID);
-  display.print(F("Pass: "));
-  display.println(AP_PASS);
-  display.println(F(""));
-  display.println(F("Captive Portal"));
-  display.println(F("will auto-open!"));
-  display.display();
+  // Build WiFi info text for scrolling
+  wifiInfoText = "Connect to WiFi: " + String(AP_SSID) + "  |  Pass: " + String(AP_PASS) + "  |  Captive Portal will auto-open!  |  ";
+  
+  // Initialize input tracking
+  lastInputTime = millis();
+  firstInputReceived = false;
+  showingWifiInfo = false;
 
   // Start DNS Server for Captive Portal
   // This redirects ALL domain requests to the ESP32's IP
@@ -252,8 +272,8 @@ void setup() {
   }
   delay(10);
   
-  // Set default face
-  setFace("defualt");
+  // Show rest face on startup without moving motors
+  setFace("rest");
   
   Serial.println(F("HTTP server & Captive Portal started."));
 }
@@ -265,6 +285,7 @@ void loop() {
   server.handleClient();
   updateAnimatedFace();
   updateIdleBlink();
+  updateWifiInfoScroll();
 
   if (currentCommand != "") {
     String cmd = currentCommand;
@@ -298,6 +319,7 @@ void loop() {
       if (buffer_pos > 0) {
         command_buffer[buffer_pos] = '\0';
         int motorNum, angle;
+        recordInput();
         if(strcmp(command_buffer, "run walk") == 0 || strcmp(command_buffer, "rn wf") == 0) { currentCommand = "forward"; runWalkPose(); currentCommand = ""; }
         else if(strcmp(command_buffer, "rn wb") == 0) { currentCommand = "backward"; runWalkBackward(); currentCommand = ""; }
         else if(strcmp(command_buffer, "rn tl") == 0) { currentCommand = "left"; runTurnLeft(); currentCommand = ""; }
@@ -524,4 +546,69 @@ bool pressingCheck(String cmd, int ms) {
     yield();
   }
   return true;
+}
+
+void recordInput() {
+  lastInputTime = millis();
+  if (!firstInputReceived) {
+    firstInputReceived = true;
+    showingWifiInfo = false;
+  }
+}
+
+void updateWifiInfoScroll() {
+  // Don't show WiFi info if first input has been received
+  if (firstInputReceived) {
+    if (showingWifiInfo) {
+      showingWifiInfo = false;
+      // Restore the current face
+      if (currentFaceFrames != nullptr && currentFaceFrameCount > 0) {
+        updateFaceBitmap(currentFaceFrames[currentFaceFrameIndex]);
+      }
+    }
+    return;
+  }
+  
+  unsigned long now = millis();
+  
+  // Check if 30 seconds have passed without input
+  if (!showingWifiInfo && (now - lastInputTime >= 30000)) {
+    showingWifiInfo = true;
+    wifiScrollPos = 0;
+    lastWifiScrollMs = now;
+  }
+  
+  if (!showingWifiInfo) return;
+  
+  // Update scroll every 150ms
+  if (now - lastWifiScrollMs >= 150) {
+    lastWifiScrollMs = now;
+    
+    // Clear and redraw with current face in background
+    display.clearDisplay();
+    
+    // Draw the face bitmap in the background
+    if (currentFaceFrames != nullptr && currentFaceFrameCount > 0) {
+      display.drawBitmap(0, 0, currentFaceFrames[currentFaceFrameIndex], 128, 64, SSD1306_WHITE);
+    }
+    
+    // Draw black bar for text background on top row
+    display.fillRect(0, 0, 128, 10, SSD1306_BLACK);
+    
+    // Draw scrolling text
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextWrap(false);
+    display.setCursor(-wifiScrollPos, 1);
+    display.print(wifiInfoText);
+    display.setTextWrap(true);
+    
+    display.display();
+    
+    // Advance scroll position
+    wifiScrollPos += 2;
+    if (wifiScrollPos >= (int)(wifiInfoText.length() * 6)) {
+      wifiScrollPos = 0;
+    }
+  }
 }
