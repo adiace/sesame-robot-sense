@@ -28,7 +28,7 @@ void setup() {
   while (!Serial);
 
   Serial.println("-----------------------------------");
-  Serial.println("   Sesame Motor Calibrator (v2)    ");
+  Serial.println("   Sesame Motor Tester Interface   ");
   Serial.println("-----------------------------------");
   Serial.println("Commands:");
   Serial.println("1. id,angle   -> e.g. '0,90'");
