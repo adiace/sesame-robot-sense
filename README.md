@@ -42,9 +42,9 @@ Follow these steps to build your own Sesame Robot:
 
 ### 1. Gather Parts 
 Check the **[Bill of Materials (BOM)](hardware/bom/README.md)** for a complete list of required electronics and hardware.
-*   Microcontroller: ESP32 S2 Mini
+*   Microcontroller: Lolin S2 Mini (recommended for new builds) or ESP32-DevKitC-32E with Distro Board V1
 *   Actuators: 8x MG90 Servos
-*   Power: 5V 3A source (USB-C PD or battery + buck; see BOM for the 2× 10440 Li-ion + 2× AAA holder option)
+*   Power: 5V 3A source (USB-C PD for S2 Mini or battery + buck for both; see BOM for the 2× 10440 Li-ion + 2× AAA holder option)
 
 ### 2. Print Parts 
 Download the STLs and follow the **[Printing Guide](hardware/printing/README.md)**.
@@ -79,7 +79,7 @@ Sesame Studio is a standalone desktop application included in `software/sesame-s
 <img width="50%" height="925" alt="sesamestudio-preview" src="https://github.com/user-attachments/assets/589de8ec-5895-4d5a-aadf-dd944e42172f" />
 
 ### Firmware
-The ESP32 firmware handles the kinematics, face display, and WiFi control interface.
+The ESP32 firmware (`sesame-firmware-main.ino`) handles the kinematics, face display, and WiFi control interface.
 *   **Web UI:** Control the robot from your phone via the built-in Access Point.
 *   **Custom Faces:** Add your own bitmaps (guide in firmware docs).
 

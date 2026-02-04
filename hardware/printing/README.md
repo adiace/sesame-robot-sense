@@ -1,8 +1,8 @@
 # 3D Printing Guide
 
-Sesame is designed to be printed in **PLA**. Most parts print without supports, but the body cover needs supports in targeted areas. Below is a quick reference for each component:
+Sesame is designed to be printed in **PLA**. Most parts print without supports, but the top cover needs supports in targeted areas. Below is a quick reference for each component:
 
-Note: There are 3 different top cover styles currently. Cat Enclosed, Enclosed, and Original Style.
+Note: There are 3 different top cover styles currently available. **Enclosed v91 is recommended** as it's the most modern design with magnetic hat mounts, covered display wires, and multicolor detail support. See [Top Covers](stl/top-covers/) for details on all styles.
 
 ## Recommended Settings
 * **Material:** PLA / PLA+
@@ -42,7 +42,7 @@ This is what the part should look like sliced:
 
 <img src="assets/sliced-topcover.png" alt="sliced-topcover" width="70%">
 
-### Recommended Print Orientaiton for Joints:
+### Recommended Print Orientation for Joints:
 
 Using the auto orientate tool will place these the correct way. 
 

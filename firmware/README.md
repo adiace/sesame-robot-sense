@@ -29,7 +29,7 @@ This document provides technical information on the firmware architecture, contr
 3. **Select your board**:
    - Go to **Tools → Board**
    - For Lolin S2 Mini: Select "LOLIN S2 Mini"
-   - For Sesame Distro Board: Select "ESP32 Dev Module"
+   - For Sesame Distro Board V1: Select "ESP32 Dev Module"
 4. **Configure board settings** (if using Lolin S2 Mini):
    - **Upload Speed**: 921600
    - **USB CDC On Boot**: "Enabled"
@@ -39,13 +39,15 @@ This document provides technical information on the firmware architecture, contr
 6. **Choose your board configuration** in the code:
    - Open [sesame-firmware-main.ino](sesame-firmware-main.ino)
    - Find the pin configuration section (around line 55-65)
-   - Comment/uncomment the appropriate `servoPins` and `I2C_` defines for your board type
+   - **If you built with the Lolin S2 Mini:** Uncomment the S2 Mini `servoPins` array and `I2C_SDA`/`I2C_SCL` defines. Comment out the Distro Board section.
+   - **If you built with the Distro Board V1 and ESP32-DevKitC-32E:** Uncomment the Distro Board `servoPins` array and `I2C_SDA`/`I2C_SCL` defines. Comment out the S2 Mini section.
 7. **Upload the firmware**:
    - Click the **Upload** button (→) in Arduino IDE
    - Wait for compilation and upload to complete
 8. **Test the connection**:
    - Open Serial Monitor (**Tools → Serial Monitor**, set baud rate to 115200)
    - Reset the board - you should see startup messages
+   - The serial monitor provides individual motor control for testing and troubleshooting
    - Connect to the "Sesame-Controller" WiFi network (password: `12345678`)
    - Navigate to any website in your browser to access the control interface
 

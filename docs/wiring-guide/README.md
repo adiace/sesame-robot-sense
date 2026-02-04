@@ -8,14 +8,14 @@ Complete wiring guides for the Sesame Robot.
 
 The project supports two wiring strategies that suit different build constraints:
 
-- **S2 Mini / hand wiring:** Uses an ESP32-S2 Mini, loose headers, and point-to-point wiring. It is the lowest-cost option and easy to source, but it demands patience to keep the harness tidy and leaves less room for mistakes.
-- **Sesame Distro Board / ESP32 DevKit:** Uses the custom distro PCB stacked on an ESP32-DevKitC-32E. It front-loads the work into soldering headers and the buck converter but dramatically simplifies routing, labeling, and maintenance once assembled. Please note the V1 board is a prototype and may not have full functionality. I will be updating the design to improve it very soon!
+- **Lolin S2 Mini / hand wiring (RECOMMENDED FOR NEW BUILDS):** Uses a Lolin S2 Mini, loose headers, and point-to-point wiring. It is the lowest-cost option, easy to source, supports USB-C PD for tethered power, but demands patience to keep the harness tidy and leaves less room for mistakes. **Critical: Use 30AWG wire for data lines and 22AWG for power—larger gauge wire will make assembly nearly impossible.**
+- **Sesame Distro Board V1 / ESP32-DevKitC-32E:** Uses the custom Distro Board V1 PCB stacked on an ESP32-DevKitC-32E. It front-loads the work into soldering headers and the buck converter but dramatically simplifies routing, labeling, and maintenance once assembled. Please note the V1 board is a prototype, has known issues, and cannot run on tethered USB-C power (battery + buck converter required). V2 is coming soon!
 
 Pick the approach that matches your component availability and comfort with managing wire bundles; the remainder of this guide dives into both workflows.
 
-## How to wire the S2 Mini / Hand Wiring
+## How to wire the Lolin S2 Mini / Hand Wiring
 
-The S2 Mini method is a traditional protoboard build. Consult the S2 Mini wiring diagram below while reading this section; it captures every motor, sensor, OLED, and button lead even if the photos only show a subset of the connections. Expect a high connection count, so plan wire lengths and colors before soldering to avoid confusion later.
+The Lolin S2 Mini method is a traditional protoboard build. Consult the S2 Mini wiring diagram below while reading this section; it captures every motor, sensor, OLED, and button lead even if the photos only show a subset of the connections. Expect a high connection count, so plan wire lengths and colors before soldering to avoid confusion later.
 
 <img src="s2-mini-wiring-guide.png" alt="S2 Mini wiring diagram" width="70%">
 
@@ -71,15 +71,18 @@ When packing electronics into the frame, it's difficult with the hand wiring set
 
 ---
 
-## How to wire the Sesame Distro Board / ESP32-DevKitC-32E
+## How to wire the Sesame Distro Board V1 / ESP32-DevKitC-32E
 
 ### Overview
 
 > [!CAUTION]  
-> UPDATE 1/20/25: Upon further testing, the Sesame distro board V1 will work, but it has a few issues that make it a little harder to assemble and will not run on teathered power (eg. USB C). Until V2 is released, I recommend using the S2 Mini / Hand Wiring approach. If you ordered a distro board V1, it will still be supported with wiring guides and firmware for the foreseeable future <3.
+> UPDATE 1/20/26: Upon further testing, the Sesame distro board V1 will work, but it has a few issues that make it a little harder to assemble and will not run on teathered power (eg. USB C). Until V2 is released, I recommend using the S2 Mini / Hand Wiring approach. If you ordered a distro board V1, it will still be supported with wiring guides and firmware for the foreseeable future <3.
 
 This option provides a cleaner, more organized wiring solution.
 Consult the distro-board wiring diagram below for exact connection locations.
+
+> [!IMPORTANT]
+> **ESP32 Pin Header Requirement:** The distro board V1 stacks on top of the ESP32-DevKitC-32E, so you need an ESP32 board **without pre-soldered pin headers**. If your board came with headers already soldered on the top, you will need to desolder all of the headers and flip them to the bottom side of the ESP32 board so the distro board can mount on top.
 
 <img src="distro-board-wiring-guide.png" alt="distro-board wiring diagram" width="70%">
 
@@ -115,11 +118,11 @@ A buck converter takes any voltage (5V-12V) and drops it to a stable 5V for the 
 
 **Note on 2× AAA holders with 10440 Li-ion cells:**
 - Treat this as a 2S Li-ion pack; wire the holder leads through the switch and buck converter.
-- Recharge the 10440 cells outside the holder using a proper Li-ion charger unless the holder explicitly supports charging.
+- **Always remove the 10440 cells from the holder and recharge them separately using a proper Li-ion charger.** Most AAA holders do not support safe Li-ion charging and attempting to charge in-holder can be dangerous.
 
 ### Sourcing the Distro Board
 
-The Sesame Distro Board is a custom PCB designed specifically for this project. It mounts on top of a ESP32-DevKitC-32E.
+The Sesame Distro Board V1 is a custom PCB designed specifically for this project. It mounts on top of a ESP32-DevKitC-32E.
 
 More information is avalible in the [PCB](../../hardware/pcb/README.md) section of the documentation.
 

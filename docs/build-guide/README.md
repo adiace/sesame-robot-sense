@@ -41,7 +41,7 @@ Here's what a complete set looks like:
 1. Open the [wiring guide](../wiring-guide/README.md) and pick the section that matches your build (S2 Mini hand-wired or Sesame Distro Board).
 2. Lay out every connector in the order shown on the wiring diagram before soldering; this keeps the data lines from getting crossed.
 3. Tin and solder the rails/buck converter first, then route signal wires. Leave generous length for the motors that terminate near the hips.
-4. This is optional but you can also label each servo lead (M0–M7) using tape flags as soon as it is soldered. Future you will thank you.
+4. This is optional but you can also label each servo lead (S0–S7) using tape flags as soon as it is soldered. Future you will thank you.
 
 > [!WARNING]
 > Stop before permanently wiring the power switch or OLED. Those final joints happen after the electronics are seated in the frame so you can dial the cable length exactly.
@@ -60,7 +60,7 @@ Here's what a complete set looks like:
 
 1. Lay out the four femur parts and make sure the embossed labels stay readable after sanding.
 2. Press-fit a single-sided servo horn into each slot. Trim flash or lightly sand the slot if the horn binds.
-3. While holding the horn flat, drive an M2 × 4 mm self-threading screw through the horn and into the plastic until snug.
+3. While holding the horn flat, drive an M2 × 5 mm self-threading screw through the horn and into the plastic until snug.
 
 <img src="assets/joint-horn-install.png" alt="install-horn" width="70%">
 
@@ -100,7 +100,7 @@ The final pre-assembly step is loading the OLED and power switch into the top co
 
 <img src="assets/insert-display.png" alt="insert-display" width="70%">
 
-2. If the fit is loose, drive two M2 × 4 mm screws through the angled bosses to clamp the PCB.
+2. If the fit is loose, drive two M2 × 5 mm self-threading screws through the angled bosses to clamp the PCB.
 
 <img src="assets/securing-display.png" alt="securing-display" width="70%">
 
@@ -114,7 +114,7 @@ The final pre-assembly step is loading the OLED and power switch into the top co
 
 <img src="assets/insert-display-enclosed.png" alt="insert-display-enclosed" width="70%">
 
-2. If the fit is loose, drive two M2 × 4 mm screws through the angled holes in the ears to clamp the PCB. You can also use a drop of removable hot glue to keep it in place.
+2. If the fit is loose, drive two M2 × 5 mm self-threading screws through the angled holes in the ears to clamp the PCB. You can also use a drop of removable hot glue to keep it in place.
 
 <img src="assets/securing-display-enclosed.png" alt="securing-display" width="70%">
 
@@ -155,7 +155,7 @@ Once in, rotate the motor upwards, making sure the wires are not colliding with 
 
 <img src="assets/rotate-motor.png" alt="rotate-motor" width="70%">
 
-Repeat for all four motors. Make sure the motor shafts are closest to the outer edge of the frame and mirror side-to-side. Secure each motor with M2 × 4 mm self-threading screws.
+Repeat for all four motors. Make sure the motor shafts are closest to the outer edge of the frame and mirror side-to-side. Secure each motor with M2 × 5 mm self-threading screws.
 
 <img src="assets/install-frame-motors.png" alt="complete-motors" width="70%">
 
@@ -178,7 +178,7 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 
 <img src="assets/secure-electronics.png" alt="s2-secure-electronics" width="70%">
 
-4. **Distro board build:** Install four M2.5 × 5 mm male-female standoffs to raise the Sesame Distro Board so it clears the ESP32 DevKit. Then secure the assembly using the top screws.
+4. **Distro Board V1 build:** Install four M2.5 × 5 mm male-female standoffs to raise the Sesame Distro Board V1 so it clears the ESP32 DevKit. Then secure the assembly using the top screws.
 
 <img src="assets/secure-distro-board.png" alt="s2-secure-distro-board" width="70%">
 
@@ -190,14 +190,14 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 **Goal:** Teach the controller where each motor sits so the walking poses land correctly.
 
 1. Inspect the harness to ensure no bare conductors can short during testing. Add heat-shrink or tape where needed, especially near the OLED and buck converter pads.
-2. Connect a reliable USB-C cable and flash `sesame-motor-tester.ino` using Arduino IDE. If you have never flashed an ESP32 before, pause here and follow a quick tutorial so you are comfortable resetting/entering boot mode.
+2. Connect a reliable USB-C cable and flash `sesame-motor-tester.ino` from the [debugging-firmware](../../firmware/debugging-firmware/) folder using Arduino IDE. If you have never flashed an ESP32 before, pause here and follow a quick tutorial so you are comfortable resetting/entering boot mode.
 3. Open the serial monitor; you should see the tester menu. The robot should still look like a pile of parts. None of the motors should be plugged into horns or even into the board yet.
 
 > [!CAUTION]
 > Never run calibration with joints attached. A misaligned horn can stall or strip a servo instantly.
 
-4. Command all motors to 90°. Starting from Motor 0, plug its connector into the appropriate header (topmost plug on the distro board). If you built the hand-wired perfboard, this will be whichever socket you designated as M0. Double-check the labeling you added earlier. The servo should immediately whirr into the 90° position.
-5. Repeat for Motors 1–7, following the [angle guide](assets/sesame-angle-guide.png) while viewing the robot from the back so left/right do not get flipped. Take your time; swapping two plugs is the #1 cause of calibration failiures.
+4. Command all motors to 90°. Starting from Motor 0, plug its connector into the appropriate header (topmost plug on the Distro Board V1). If you built the hand-wired perfboard, this will be whichever socket you designated as M0. Double-check the labeling you added earlier. The servo should immediately whirr into the 90° position.
+5. Repeat for Motors 1–7, following the [angle guide](assets/sesame-angle-guide.png) (which shows the correct 90° reference position for each motor when viewed from the back) while viewing the robot from the back so left/right do not get flipped. Take your time; swapping two plugs is the #1 cause of calibration failures.
 
 <img src="assets/sesame-angle-guide.png" alt="angle-guide" width="70%">
 
@@ -213,7 +213,10 @@ Common fixes (translated from the questions I get most often):
 - **Setting Motor 4/5/6/7 straight down (0°/180°) makes the motor drive into the bottom cover.** Pull the horn off, command the opposite extreme (for Motors 4 & 6 use 180°, for 5 & 7 use 0°), then reinstall the horn pointing straight up. Run 90° again to recenter before retrying the straight-down move.
 - **A motor refuses to move at all.** Confirm the servo is actually powered by gently touching it. An unpowered servo will feel loose. If loose, inspect the 3-pin plug for reversed polarity.
 
-Finish by driving the provided servo screw (or an M2 machine screw if you need extra length) into each horn once every joint passes the min/center/max tests.
+Finish by driving an M2.5 × 5 mm machine screw (the included servo horn screws are often too short) into each horn once every joint passes the min/center/max tests.
+
+> [!TIP]
+> After calibration is complete, the main firmware (`sesame-firmware-main.ino`) also includes individual motor control via the serial monitor, which is useful for testing and troubleshooting after assembly.
 
 ## Top Cover and Final Wiring
 
@@ -231,7 +234,7 @@ Finish by driving the provided servo screw (or an M2 machine screw if you need e
 
 <img src="assets/push-on-top-cover.png" alt="push-on-top-cover" width="70%">
 
-5. While holding the cover, insert four M2 × 10 mm self-threading screws from the underside and snug them just enough to hold the shell.
+5. While holding the cover, insert four M2 × 5 mm self-threading screws from the underside and snug them just enough to hold the shell.
 
 <img src="assets/secure-top-cover.png" alt="secure-top-cover" width="70%">
 
