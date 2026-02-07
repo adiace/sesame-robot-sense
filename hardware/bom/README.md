@@ -13,7 +13,7 @@ Every part required to assemble Sesame is cataloged here. Pick the wiring strate
 | MG90S all-metal micro servos | 8 (buy 10 for spares) | Primary hip/leg actuators; includes servo horns but keep extras | [link](https://www.amazon.com/s?k=mg90s+metal+gear+servo+pack+of+8) |
 | 0.96" SSD1306 I2C OLED | 1 | 128x64 display that slides into the top cover slot | [link](https://www.amazon.com/s?k=0.96%22+I2C+OLED+SSD1306) |
 | USB-C data/power cable | 1 | Needs to carry 5V/3A for flashing and tethered mode | [link](https://www.amazon.com/s?k=usb+c+cable+60w) |
-| Rocker power switch (KCD1, panel mount) | 1 | Snaps into the top cover cutout | [link](https://www.amazon.com/s?k=kdc1+mini+rocker+switch+2+pin) |
+| Rocker power switch (KCD1, panel mount) | 1 | Snaps into the top cover cutout | [link](https://www.amazon.com/s?k=KCD1+mini+rocker+switch+2+pin) |
 | 22AWG silicone wire kit | 1 | Power/ground bus lines | [link](https://www.amazon.com/s?k=22awg+silicone+wire+kit) |
 | 30AWG silicone wire kit | 1 | Signal leads and dense harnessing | [link](https://www.amazon.com/s?k=30awg+silicone+wire) |
 | Heat-shrink assortment | 1 | Insulate OLED, switch, and battery joints | [link](https://www.amazon.com/s?k=heat+shrink+tubing+kit) |
