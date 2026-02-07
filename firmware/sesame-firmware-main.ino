@@ -178,9 +178,14 @@ void handleCommandWeb() {
   }
   else if (server.hasArg("motor") && server.hasArg("value")) {
     int motorNum = server.arg("motor").toInt();
+    int servoIdx = servoNameToIndex(server.arg("motor"));
     int angle = server.arg("value").toInt();
     if (motorNum >= 1 && motorNum <= 8 && angle >= 0 && angle <= 180) {
       setServoAngle(motorNum - 1, angle); // Convert 1-based to 0-based index
+      recordInput();
+      server.send(200, "text/plain", "OK");
+    } else if (servoIdx != -1 && angle >= 0 && angle <= 180) {
+      setServoAngle(servoIdx, angle);
       recordInput();
       server.send(200, "text/plain", "OK");
     } else {
