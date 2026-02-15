@@ -25,7 +25,11 @@ There is also some included debugging firmware that may be helpful in getting yo
 *   **Quadruped Design:** Uses 8 servo motors (2 per leg) to achieve roughly 8 total degrees of freedom.
 *   **Emotive Display:** Features a 128x64 OLED screen acting as a reactive face that syncs with movement.
 *   **Fully Printable:** Designed entirely for 3D printing in PLA with minimal supports.
+*   **Network Connectivity:** Connect to your WiFi network for remote control and API access.
+*   **JSON API:** RESTful API for programmatic control from Python, JavaScript, and more.
+*   **Conversational Faces:** Expressive emotion library with talk variants for voice assistant projects.
 *   **Sesame Studio:** New animation composer software to easily create custom movements.
+*   **Sesame Companion App:** Python application for voice control and advanced interactions.
 *   **Serial CLI:** Control the robot and trigger animations via a Serial Command Line Interface or the web UI.
 *   **Pre-programmed Emotes:** Includes animations for Walking, Waving, Dancing, Pointing, Resting, and more.
 
@@ -77,6 +81,17 @@ Sesame Studio is a standalone desktop application included in `software/sesame-s
 [**> Go to Sesame Studio**](software/sesame-studio/README.md)
 
 <img width="50%" height="925" alt="sesamestudio-preview" src="https://github.com/user-attachments/assets/589de8ec-5895-4d5a-aadf-dd944e42172f" />
+
+### Sesame Companion App
+The Sesame Companion App is a Python-based application that enables advanced control and interaction with your robot over your local network. It leverages the new JSON API and network mode features to provide:
+*   **Voice Assistant Integration:** Control Sesame with voice commands and see real-time emotional expressions.
+*   **Remote Control:** Command your robot from anywhere on your local network.
+*   **Face Control:** Change expressions dynamically based on conversation or context.
+*   **API Examples:** Reference implementation for building your own integrations.
+
+The Companion App works with robots running the latest firmware with network mode enabled.
+
+[**> Go to Sesame Companion App Repository**](https://github.com/dorianborian/sesame-companion-app)
 
 ### Firmware
 The ESP32 firmware (`sesame-firmware-main.ino`) handles the kinematics, face display, and WiFi control interface.
