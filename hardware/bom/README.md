@@ -28,7 +28,19 @@ Every part required to assemble Sesame is cataloged here. Pick the wiring strate
 | 3-pin male headers | 8 | Build the servo breakout; match spacing to MG90 plugs | [link](https://www.amazon.com/s?k=pin+header+strip) |
 | Buck converter (5–12 V in to stable 5V/3A out) | 1 | Powers motors + MCU when using batteries | [link](https://www.amazon.com/s?k=3a+dc+dc+buck+converter+module) |
 
-## Wiring Option B – Sesame Distro Board V1 / ESP32-DevKitC-32E
+## Wiring Option B – Sesame Distro Board V2 (Included in Build Kits)
+
+> [!NOTE]
+> If you purchased a Sesame Build Kit, your V2 Distro Board is already assembled, pre-flashed, and included. You don't need to order these parts separately.
+
+| Item | Qty | Notes | Amazon |
+| --- | --- | --- | --- |
+| Sesame Distro Board V2 PCB | 1 | Fully SMD design. Order with PCBway assembly service or attempt advanced hand soldering. See [ordering guide](/hardware/pcb/README.md) | [link](/hardware/pcb/README.md) |
+
+## Wiring Option C – Sesame Distro Board V1 / ESP32-DevKitC-32E (Legacy)
+
+> [!CAUTION]
+> V1 is now phased out but still supported. Only choose this if you already have a V1 board.
 
 | Item | Qty | Notes | Amazon |
 | --- | --- | --- | --- |
@@ -74,7 +86,8 @@ Print the 11-part part set outlined in [printing/README.md](../printing/README.m
 
 - Sesame needs at least 5 V at 3 A available at the rails. 
 - **Lolin S2 Mini:** Can be powered via USB-C PD (5V/3A capable) for tethered operation, or via battery + buck converter.
-- **Distro Board V1:** Cannot run on tethered USB-C power due to design limitations. Must use battery + buck converter for operation.
+- **Distro Board V2:** Supports both USB-C PD (5V/3A) for tethered operation AND battery + buck converter. Included in all Sesame Build Kits.
+- **Distro Board V1 (Legacy):** Cannot run on tethered USB-C power due to design limitations. Must use battery + buck converter for operation.
 - When battery powering either build, route the pack through the rocker switch and buck converter before it touches the rails, mirroring the schematic in [docs/wiring-guide/README.md](../../docs/wiring-guide/README.md).
 - **Never cut the factory battery connector off the pack.** Instead, create adapter pigtails using XT30 or JST RCY leads so the pack remains chargeable.
 - A 2× 10440 Li-ion + 2× AAA holder pack fits the stock battery cavity and works well with the existing power switch + buck converter.

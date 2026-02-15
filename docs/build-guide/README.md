@@ -38,7 +38,7 @@ Here's what a complete set looks like:
 
 **Goal:** Build 90% of the harness on the bench so the frame install is quick.
 
-1. Open the [wiring guide](../wiring-guide/README.md) and pick the section that matches your build (S2 Mini hand-wired or Sesame Distro Board).
+1. Open the [wiring guide](../wiring-guide/README.md) and pick the section that matches your build (S2 Mini hand-wired, Distro Board V2, or Distro Board V1 legacy).
 2. Lay out every connector in the order shown on the wiring diagram before soldering; this keeps the data lines from getting crossed.
 3. Tin and solder the rails/buck converter first, then route signal wires. Leave generous length for the motors that terminate near the hips.
 4. This is optional but you can also label each servo lead (S0–S7) using tape flags as soon as it is soldered. Future you will thank you.
@@ -178,7 +178,8 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 
 <img src="assets/secure-electronics.png" alt="s2-secure-electronics" width="70%">
 
-4. **Distro Board V1 build:** Install four M2.5 × 5 mm male-female standoffs to raise the Sesame Distro Board V1 so it clears the ESP32 DevKit. Then secure the assembly using the top screws.
+4. **Distro Board V1 build (Legacy):** Install four M2.5 × 5 mm male-female standoffs to raise the Sesame Distro Board V1 so it clears the ESP32 DevKit. Then secure the assembly using the top screws.
+4. **Distro Board V2 build (Build Kits):** Mount according to V2 specifications (typically with standoffs provided in the kit).
 
 <img src="assets/secure-distro-board.png" alt="s2-secure-distro-board" width="70%">
 
@@ -196,7 +197,7 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 > [!CAUTION]
 > Never run calibration with joints attached. A misaligned horn can stall or strip a servo instantly.
 
-4. Command all motors to 90°. Starting from Motor 0, plug its connector into the appropriate header (topmost plug on the Distro Board V1). If you built the hand-wired perfboard, this will be whichever socket you designated as M0. Double-check the labeling you added earlier. The servo should immediately whirr into the 90° position.
+4. Command all motors to 90°. Starting from Motor 0, plug its connector into the appropriate header (topmost plug on a Distro Board). If you built the hand-wired perfboard, this will be whichever socket you designated as M0. Double-check the labeling you added earlier. The servo should immediately whirr into the 90° position.
 5. Repeat for Motors 1–7, following the [angle guide](assets/sesame-angle-guide.png) (which shows the correct 90° reference position for each motor when viewed from the back) while viewing the robot from the back so left/right do not get flipped. Take your time; swapping two plugs is the #1 cause of calibration failures.
 
 <img src="assets/sesame-angle-guide.png" alt="angle-guide" width="70%">
@@ -270,7 +271,7 @@ Great job! The hardware is complete, now we just need to do a few checks to make
 3. Inspect the OLED wiring one last time to ensure SDA/SCL aren’t swapped.
 
 **Flash production firmware**
-1. Choose the code variant (S2 Mini or Distro Board) from the firmware folder. Customize pin definitions if you’re using a different ESP32.
+1. Choose the code variant (S2 Mini, Distro Board V2, or Distro Board V1 legacy) from the firmware folder. Customize pin definitions if you're using a different ESP32.
 2. Use Arduino IDE to flash the full firmware bundle (motors + faces). Detailed notes live in [firmware/README.md](../../firmware/README.md).
 3. Connect to Sesame’s Wi-Fi AP, load the control page, and trigger a pose to verify everything moves as expected.
 

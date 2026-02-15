@@ -6,10 +6,11 @@ Complete wiring guides for the Sesame Robot.
 
 ## Choosing a Wiring Approach
 
-The project supports two wiring strategies that suit different build constraints:
+The project supports multiple wiring strategies that suit different build constraints:
 
-- **Lolin S2 Mini / hand wiring (RECOMMENDED FOR NEW BUILDS):** Uses a Lolin S2 Mini, loose headers, and point-to-point wiring. It is the lowest-cost option, easy to source, supports USB-C PD for tethered power, but demands patience to keep the harness tidy and leaves less room for mistakes. **Critical: Use 30AWG wire for data lines and 22AWG for power—larger gauge wire will make assembly nearly impossible.**
-- **Sesame Distro Board V1 / ESP32-DevKitC-32E:** Uses the custom Distro Board V1 PCB stacked on an ESP32-DevKitC-32E. It front-loads the work into soldering headers and the buck converter but dramatically simplifies routing, labeling, and maintenance once assembled. Please note the V1 board is a prototype, has known issues, and cannot run on tethered USB-C power (battery + buck converter required). V2 is coming soon!
+- **Lolin S2 Mini / hand wiring (RECOMMENDED FOR DIY BUILDS):** Uses a Lolin S2 Mini, loose headers, and point-to-point wiring. It is the lowest-cost option, easy to source, supports USB-C PD for tethered power, but demands patience to keep the harness tidy and leaves less room for mistakes. **Critical: Use 30AWG wire for data lines and 22AWG for power—larger gauge wire will make assembly nearly impossible.**
+- **Sesame Distro Board V2 (INCLUDED IN BUILD KITS):** The latest custom PCB with SMD components, supports both USB-C PD and battery power. Pre-flashed and included with all Sesame Build Kits. Advanced to hand-solder; professional assembly recommended if ordering separately.
+- **Sesame Distro Board V1 / ESP32-DevKitC-32E (LEGACY):** Uses the custom Distro Board V1 PCB stacked on an ESP32-DevKitC-32E. Now phased out but still supported. V1 has known limitations and cannot run on tethered USB-C power (battery + buck converter required).
 
 Pick the approach that matches your component availability and comfort with managing wire bundles; the remainder of this guide dives into both workflows.
 

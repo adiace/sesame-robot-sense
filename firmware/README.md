@@ -25,6 +25,9 @@ This document provides technical information on the firmware architecture, contr
 
 ## How to Flash the Firmware
 
+> [!NOTE]
+> **Sesame Build Kit Users:** Your Distro Board V2 comes pre-flashed with the latest firmware. You only need to flash firmware if you want to customize it or update to a newer version.
+
 ### Prerequisites
 1. **Arduino IDE** (version 2.0 or higher recommended)
 2. **ESP32 Board Support**: Install via Arduino IDE's Board Manager
@@ -47,7 +50,7 @@ This document provides technical information on the firmware architecture, contr
 3. **Select your board**:
    - Go to **Tools → Board**
    - For Lolin S2 Mini: Select "LOLIN S2 Mini"
-   - For Sesame Distro Board V1: Select "ESP32 Dev Module"
+   - For Sesame Distro Board V1 or V2: Select "ESP32 Dev Module"
 4. **Configure board settings** (if using Lolin S2 Mini):
    - **Upload Speed**: 921600
    - **USB CDC On Boot**: "Enabled"
@@ -58,7 +61,7 @@ This document provides technical information on the firmware architecture, contr
    - Open [sesame-firmware-main.ino](sesame-firmware-main.ino)
    - Find the pin configuration section (around line 55-65)
    - **If you built with the Lolin S2 Mini:** Uncomment the S2 Mini `servoPins` array and `I2C_SDA`/`I2C_SCL` defines. Comment out the Distro Board section.
-   - **If you built with the Distro Board V1 and ESP32-DevKitC-32E:** Uncomment the Distro Board `servoPins` array and `I2C_SDA`/`I2C_SCL` defines. Comment out the S2 Mini section.
+   - **If you built with the Distro Board V1 or V2 and ESP32-DevKitC-32E:** Uncomment the Distro Board `servoPins` array and `I2C_SDA`/`I2C_SCL` defines. Comment out the S2 Mini section. (V1 and V2 use the same pin configuration)
 7. **(Optional) Configure network mode**:
    - If you want the robot to connect to your WiFi network (for API access and remote control), edit the network configuration section (around line 17-22):
    ```cpp
@@ -641,7 +644,7 @@ scheduleNextIdleBlink(3000, 7000);  // Min and max ms between blinks
 
 ## Hardware Abstraction Layer (HAL)
 
-The firmware abstracts pin definitions via the `servoPins` array. The default configuration is optimized for the **Sesame Distro Board** and **Lolin S2 Mini**, but is easily portable to any ESP32 with WiFi capability (e.g., S3, C3, or DevKit V1).
+The firmware abstracts pin definitions via the `servoPins` array. The default configuration is optimized for the **Sesame Distro Board V1/V2** and **Lolin S2 Mini**, but is easily portable to any ESP32 with WiFi capability (e.g., S3, C3, or DevKit V1).
 
 ### Pin Configuration Tables
 
@@ -660,7 +663,10 @@ The firmware abstracts pin definitions via the `servoPins` array. The default co
 | **I2C SDA** | - | **33** | SSD1306 Data (Hardware I2C) |
 | **I2C SCL** | - | **35** | SSD1306 Clock (Hardware I2C) |
 
-#### Sesame Distro Board (ESP32-WROOM32)
+#### Sesame Distro Board V1 & V2 (ESP32-WROOM32)
+
+> [!NOTE]
+> Both V1 and V2 Distro Boards use the same pin configuration.
 
 | Motor/Component | Array Index | GPIO Pin | Notes |
 |-----------------|-------------|----------|-------|
