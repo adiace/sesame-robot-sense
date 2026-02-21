@@ -14,16 +14,16 @@ Note: There are 3 different top cover styles currently available. **Enclosed v91
 
 | Component       | Supports Required | STL Link |
 |-----------------|-------------------|----------|
-| Joint R1        | No                | [femurjoint-R1-v90.stl](stl/femurjoint-R1-v90.stl) |
-| Joint R2        | No                | [femurjoint-R2-v90.stl](stl/femurjoint-R2-v90.stl) |
-| Joint R3        | No                | [foot-joint-R3-v90.stl](stl/foot-joint-R3-v90.stl) |
-| Joint R4        | No                | [foot-joint-R4-v90.stl](stl/foot-joint-R4-v90.stl) |
-| Joint L1        | No                | [femurjoint-L1-v90.stl](stl/femurjoint-L1-v90.stl) |
-| Joint L2        | No                | [femurjoint-L2-v90.stl](stl/femurjoint-L2-v90.stl) |
-| Joint L3        | No                | [foot-joint-L3-v90.stl](stl/foot-joint-L3-v90.stl) |
-| Joint L4        | No                | [foot-joint-L4-v90.stl](stl/foot-joint-L4-v90.stl) |
-| Internal Frame  | No                | [internal-frame-v90.stl](stl/internal-frame-v90.stl) |
-| Bottom Cover    | No                | [bottom-cover-v90.stl](stl/bottom-cover-v90.stl) |
+| Joint R1        | No                | [femurjoint-R1-v100.stl](stl/femurjoint-R1-v100.stl) |
+| Joint R2        | No                | [femurjoint-R2-v100.stl](stl/femurjoint-R2-v100.stl) |
+| Joint R3        | No                | [foot-joint-R3-v100.stl](stl/foot-joint-R3-v100.stl) |
+| Joint R4        | No                | [foot-joint-R4-v100.stl](stl/foot-joint-R4-v100.stl) |
+| Joint L1        | No                | [femurjoint-L1-v100.stl](stl/femurjoint-L1-v100.stl) |
+| Joint L2        | No                | [femurjoint-L2-v100.stl](stl/femurjoint-L2-v100.stl) |
+| Joint L3        | No                | [foot-joint-L3-v100.stl](stl/foot-joint-L3-v100.stl) |
+| Joint L4        | No                | [foot-joint-L4-v100.stl](stl/foot-joint-L4-v100.stl) |
+| Internal Frame  | No                | [internal-frame-v100.stl](stl/internal-frame-v100.stl) |
+| Bottom Cover    | No                | [bottom-cover-v100.stl](stl/bottom-cover-v100.stl) |
 | Top Cover       | Yes               | [Top Covers](stl/top-covers/) |
 
 
