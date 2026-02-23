@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-enum ServoName : uint_8t {
+enum ServoName : uint8_t {
   R1 = 0, 
   R2 = 1,
   L1 = 2,
@@ -13,19 +13,17 @@ enum ServoName : uint_8t {
   L4 = 7
 };
 
-const String[] ServoNames=["R1","R2","L1","L2","R4","R3","L3","L4"];
+const String ServoNames[]={"R1","R2","L1","L2","R4","R3","L3","L4"};
 
-inline int servoNameToIndex(String servo) {
-  switch(servo) {
-    case "L1": return L1;
-    case "L2": return L2;
-    case "L3": return L3;
-    case "L4": return L4;
-    case "R1": return R1;
-    case "R2": return R2;
-    case "R3": return R3;
-    case "R4": return R4;
-  }
+inline int servoNameToIndex(const String& servo) {
+  if (servo == "L1") return L1;
+  if (servo == "L2") return L2;
+  if (servo == "L3") return L3;
+  if (servo == "L4") return L4;
+  if (servo == "R1") return R1;
+  if (servo == "R2") return R2;
+  if (servo == "R3") return R3;
+  if (servo == "R4") return R4;
   return -1;
 }
 
