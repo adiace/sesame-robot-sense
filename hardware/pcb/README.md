@@ -28,6 +28,7 @@ The V2 board consists entirely of SMD (surface-mount) components, which are **ad
 ### V2 Files Available
 
 All files are located in the [`distro-v2/`](distro-v2/) directory:
+- **Schematic source:** `SCH_Sesame-Distro-Board-V2_2026-03-06.json` - EasyEDA source design file for the V2 schematic
 - **Gerber file:** `Gerber_Sesame-Distro-V2_PCB.zip` - For PCB fabrication
 - **BOM file:** `BOM_Sesame-Distro-V2.csv` - Bill of materials for SMD components
 - **Pick-and-Place file:** `PickAndPlace_PCB_Sesame-Distro-V2.csv` - Component placement data for assembly
