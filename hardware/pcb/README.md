@@ -32,6 +32,18 @@ All files are located in the [`distro-v2/`](distro-v2/) directory:
 - **BOM file:** `BOM_Sesame-Distro-V2.csv` - Bill of materials for SMD components
 - **Pick-and-Place file:** `PickAndPlace_PCB_Sesame-Distro-V2.csv` - Component placement data for assembly
 
+### PCBway / JLCPCB Sourcing Notes
+
+When uploading the BOM to PCBway or JLCPCB for assembly, note the following three components that require special handling:
+
+| Designator | Issue | Corrected Part | LCSC # |
+|---|---|---|---|
+| `U5`, `U7` | **Solder Pads** — these are copper pads only, no physical component is needed. Remove these lines from the BOM when ordering assembly. | N/A | N/A |
+| `5-12V` | 2-pin 3.5 mm screw terminal. Original part `1984617` (Phoenix Contact) cannot be sourced. | `XY302V-3.5-2P` | [C784940](https://www.lcsc.com/product-detail/C784940.html) |
+| `JST-XH` | 4-pin JST XH connector. Original `JST-XH-4-PIN` cannot be sourced. | `B4B-XH-A(LF)(SN)` | [C144395](https://www.lcsc.com/product-detail/C144395.html) |
+
+The BOM CSV has already been updated with the corrected parts. The solder-pad rows are marked **"No Part Required"** in the Name field so they are easy to identify and exclude.
+
 ---
 
 ## Sesame Distro Board V1 (Legacy)
