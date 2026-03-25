@@ -9,6 +9,12 @@ ___
 
 <img width="100%" height="728" alt="sesame-cover" src="https://github.com/user-attachments/assets/f0cc6ad0-135b-4515-8750-900f224ed7ae" />
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=NIgoQVQF_Ng">
+    <img src="https://github.com/user-attachments/assets/1663e022-0680-4053-97b4-53e669a6f07d" width="70%" alt="tutorial-button">
+  </a>
+</p>
+
 ___
 
 **Greetings, from your new best friend.**
