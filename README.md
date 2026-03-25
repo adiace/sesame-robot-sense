@@ -125,13 +125,4 @@ I would also love to see forks of this project with new hardware, software, face
   
 ---
 
-## Sesame Complete Build Kit Pre-orders available!
-I am excited to announce that, after popular demand, Sesame Complete Build Kits are now available for pre-order! 
-
-That's right, your little robot companion just got even easier to build. Each kit includes all the components you need to build a full Sesame Robot. With the included detailed instructions, guides, and resources, this kit is perfect for both seasoned Makers and beginners. Click the image below to learn more.
-
-<a href="https://www.doriantodd.com/sesame/kit"><img src="https://github.com/user-attachments/assets/6d438981-2714-408d-a250-fda64f22c4d1" width="70%" alt="kits-availible"></a>
-
----
-
 *Created by [Dorian Todd](https://www.doriantodd.com/). Need help with your Sesame Robot? Send me a message on Discord, my username is "starphee"*
