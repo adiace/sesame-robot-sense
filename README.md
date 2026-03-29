@@ -89,7 +89,14 @@ Sesame Studio is a standalone desktop application included in `software/sesame-s
 
 [**> Go to Sesame Studio**](software/sesame-studio/README.md)
 
-<img width="50%" height="925" alt="sesamestudio-preview" src="https://github.com/user-attachments/assets/589de8ec-5895-4d5a-aadf-dd944e42172f" />
+
+### Sesame Simulator
+The Sesame Simulator, created by Jay Li, is a Rust-based 3D simulation environment for testing Sesame's movements and kinematics in a virtual space. It features:
+*   **Physics-based Simulation:** Test walking and balance without hardware.
+*   **Web-based Interface:** Run the simulator directly in your browser.
+*   **URDF Integration:** Accurate modeling of Sesame's physical properties.
+
+[**> Go to Sesame Simulator**](https://one-for-all.github.io/sesame-robot-sim/)
 
 ### Sesame Companion App
 The Sesame Companion App is a Python-based application that enables advanced control and interaction with your robot over your local network. It leverages the new JSON API and network mode features to provide:
@@ -109,7 +116,6 @@ The ESP32 firmware (`sesame-firmware-main.ino`) handles the kinematics, face dis
 
 [**> Go to Firmware Docs**](firmware/README.md)
 
-<img width="50%" height="1164" alt="firmware-preview" src="https://github.com/user-attachments/assets/31da32af-55a4-45e9-99ca-ff8f9b4767cd" />
 
 ---
 
