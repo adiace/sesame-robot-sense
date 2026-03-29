@@ -1,10 +1,5 @@
 # Build Guide
 Complete build guide for the Sesame Robot.
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=NIgoQVQF_Ng">
-    <img src="https://github.com/user-attachments/assets/1663e022-0680-4053-97b4-53e669a6f07d" width="70%" alt="tutorial-button">
-  </a>
-</p>
 
 Use this walkthrough alongside the BOM, wiring guide, and printing notes to stay organized. The table below previews each phase, its goal, and the doc to reference if you get stuck.
 
