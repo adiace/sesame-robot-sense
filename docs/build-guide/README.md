@@ -112,11 +112,11 @@ The next step is loading the OLED and power switch into the top cover. At this s
 
 2. **OLED Display:** Apply a small amount of solder to the pin headers on the display (tinning). Using the pre-crimped JST connector wires, match the wires to their respective marks on the display and solder them. 
 
-<img src="assets/display_soldering.png" alt="display-soldering" width="70%">
+<img src="assets/display-soldering.png" alt="display-soldering" width="70%">
 
 3. **Battery Connectors (Main Board):** Remove sheathing on the ends of the battery connector wires, tin them, and solder them to the battery pads on the main board in an L-shape pointing upwards. Make sure they do not go over the edge of the board, or the top cover won't fit.
 
-<img src="assets/battery_connector_solder.png" alt="battery-connector-solder" width="70%">
+<img src="assets/battery-connector-solder.png" alt="battery-connector-solder" width="70%">
 
 4. **Install Display:** Push the wired OLED display gently into its slot inside the top cover. Insert self-threading screws into the small screw holes beside the display to clamp it permanently in place.
 
@@ -219,9 +219,9 @@ Now to clean up the robot and secure everything.
 2. **Wire Routing:** Flip the robot over. There are channels for all the wires on the underside. Securely press all of the wires into these channels.
 3. **Bundling:** Separate the wires gently into two groups (left and right). Wrap a zip tie around each bundle, fold it once, and tighten the zip tie to create a tight bundle. This helps the top cover fit seamlessly. 
 
-<img src="assets/wire_routing.png" alt="wire-routing" width="70%">
+<img src="assets/wire-routing.png" alt="wire-routing" width="70%">
 
-<img src="assets/zip_tie_bundles.png" alt="zip-tie-bundles" width="70%">
+<img src="assets/zip-tie-bundles.png" alt="zip-tie-bundles" width="70%">
 
 4. **Testing the Switch:** Make sure the batteries are charged and insert them. Flip the switch and check if the Wi-Fi network appears or if the display lights up. If things aren't working, double-check connections.
 
