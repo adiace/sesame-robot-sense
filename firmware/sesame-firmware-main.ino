@@ -10,17 +10,6 @@
 #include "movement-sequences.h"
 #include "captive-portal.h"
 
-#if defined(__has_include)
-  #if __has_include(<esp_heap_caps.h>)
-    #include <esp_heap_caps.h>
-    #define HAS_EXTMEM_HEAP_CONTROL 1
-  #else
-    #define HAS_EXTMEM_HEAP_CONTROL 0
-  #endif
-#else
-  #define HAS_EXTMEM_HEAP_CONTROL 0
-#endif
-
 // --- Access Point Configuration ---
 // This is the network the Robot will create
 #define AP_SSID  "Sesame-Controller"
@@ -32,10 +21,6 @@
 #define NETWORK_SSID ""  // Your WiFi network name
 #define NETWORK_PASS ""  // Your WiFi password
 #define ENABLE_NETWORK_MODE false  // Set to true to enable network connection attempts
-
-// --- PSRAM Configuration ---
-// Hard-disabled by default to avoid PSRAM-related instability.
-#define FORCE_DISABLE_PSRAM_HEAP true
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
@@ -91,13 +76,6 @@ String wifiInfoText = "";
 bool networkConnected = false;
 IPAddress networkIP;
 String deviceHostname = "sesame-robot";
-
-// PSRAM Status
-const bool psramForceDisabled = FORCE_DISABLE_PSRAM_HEAP;
-bool psramDetected = false;
-bool psramHeapEnabled = false;
-size_t psramTotalBytes = 0;
-size_t psramFreeBytes = 0;
 
 // Servo Pins for Distro Board
 // ======================================================================
@@ -215,59 +193,6 @@ void handleGetStatus();
 void handleApiCommand();
 void updateWifiInfoScroll();
 void recordInput();
-void refreshPsramStatus();
-void configurePsram();
-
-void refreshPsramStatus() {
-  psramDetected = psramFound();
-  if (psramDetected) {
-    psramTotalBytes = ESP.getPsramSize();
-    psramFreeBytes = ESP.getFreePsram();
-  } else {
-    psramTotalBytes = 0;
-    psramFreeBytes = 0;
-  }
-}
-
-void configurePsram() {
-  refreshPsramStatus();
-  if (!psramDetected) {
-    psramHeapEnabled = false;
-    Serial.println("PSRAM not detected.");
-    return;
-  }
-
-#if HAS_EXTMEM_HEAP_CONTROL
-  if (FORCE_DISABLE_PSRAM_HEAP) {
-    // Use an unreachable threshold so regular heap allocations stay internal.
-    heap_caps_malloc_extmem_enable((size_t)-1);
-    psramHeapEnabled = false;
-    Serial.println("PSRAM detected and forcibly disabled for heap allocations.");
-  } else {
-    // Allow heap allocations to use PSRAM.
-    heap_caps_malloc_extmem_enable(0);
-    psramHeapEnabled = true;
-    Serial.println("PSRAM detected and heap allocations are enabled.");
-  }
-#else
-  psramHeapEnabled = !FORCE_DISABLE_PSRAM_HEAP;
-  if (FORCE_DISABLE_PSRAM_HEAP) {
-    Serial.println("PSRAM detected, but heap control API is unavailable in this build.");
-    Serial.println("FATAL: refusing to boot with PSRAM enabled. Update board core/toolchain.");
-    while (true) {
-      delay(1000);
-    }
-  } else {
-    Serial.println("PSRAM detected.");
-  }
-#endif
-
-  refreshPsramStatus();
-  Serial.print("PSRAM total bytes: ");
-  Serial.println((unsigned long)psramTotalBytes);
-  Serial.print("PSRAM free bytes: ");
-  Serial.println((unsigned long)psramFreeBytes);
-}
 
 void handleRoot() {
   server.send(200, "text/html", index_html);
@@ -333,17 +258,10 @@ void handleSetSettings() {
 
 // API endpoint for network clients to get robot status
 void handleGetStatus() {
-  refreshPsramStatus();
-
   String json = "{";
   json += "\"currentCommand\":\"" + currentCommand + "\",";
   json += "\"currentFace\":\"" + currentFaceName + "\",";
   json += "\"networkConnected\":" + String(networkConnected ? "true" : "false") + ",";
-  json += "\"psramForceDisabled\":" + String(psramForceDisabled ? "true" : "false") + ",";
-  json += "\"psramDetected\":" + String(psramDetected ? "true" : "false") + ",";
-  json += "\"psramHeapEnabled\":" + String(psramHeapEnabled ? "true" : "false") + ",";
-  json += "\"psramTotalBytes\":" + String((unsigned long)psramTotalBytes) + ",";
-  json += "\"psramFreeBytes\":" + String((unsigned long)psramFreeBytes) + ",";
   json += "\"apIP\":\"" + WiFi.softAPIP().toString() + "\"";
   if (networkConnected) {
     json += ",\"networkIP\":\"" + networkIP.toString() + "\"";
@@ -442,7 +360,6 @@ void handleApiCommand() {
 void setup() {
   Serial.begin(115200);
   randomSeed(micros());
-  configurePsram();
   
   // I2C Init for ESP32
   Wire.begin(I2C_SDA, I2C_SCL);
