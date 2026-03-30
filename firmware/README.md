@@ -50,11 +50,17 @@ This document provides technical information on the firmware architecture, contr
 3. **Select your board**:
    - Go to **Tools → Board**
    - For Lolin S2 Mini: Select "LOLIN S2 Mini"
-   - For Sesame Distro Board V1 or V2: Select "ESP32 Dev Module"
-4. **Configure board settings** (if using Lolin S2 Mini):
-   - **Upload Speed**: 921600
-   - **USB CDC On Boot**: "Enabled"
-   - **Partition Scheme**: "Default 4MB with spiffs"
+   - For Sesame Distro Board V1: Select "ESP32 Dev Module"
+   - For Sesame Distro Board V2: Select "ESP32S3 Dev Module"
+4. **Configure board settings**:
+   - **For Lolin S2 Mini**:
+     - **Upload Speed**: 921600
+     - **USB CDC On Boot**: "Enabled"
+     - **Partition Scheme**: "Default 4MB with spiffs"
+   - **For Distro Board V2 (ESP32-S3)**:
+     - **USB CDC On Boot**: "Enabled" (Required for Serial Monitor)
+     - **Flash Mode**: "QIO 80MHz"
+     - **Partition Scheme**: "Default 4MB with spiffs"
 5. **Select the correct port**:
    - Go to **Tools → Port** and select your ESP32's COM port
 6. **Choose your board configuration** in the code:
@@ -81,9 +87,9 @@ This document provides technical information on the firmware architecture, contr
    - **If using network mode**: Look for the "Connected to network!" message in Serial Monitor, then access via `http://sesame-robot.local` or the displayed IP address
 
 ### Troubleshooting
-- **Upload fails**: Try holding the BOOT button while uploading, or try a different USB cable
-- **Port not found**: Install the appropriate USB drivers (CP210x for S2 Mini, CH340 for some ESP32 boards)
-- **Compilation errors**: Verify all required libraries are installed
+- **Linux USB Permissions**: If your port isn't showing up or you get "Permission Denied", you likely need to add your user to the `dialout` group: `sudo usermod -a -G dialout $USER`. Log out and back in for changes to take effect.
+- **Upload fails**: Try holding the BOOT button while uploading, or try a different USB cable. For S3-based boards, the "USB CDC On Boot" setting is critical for finding the port after a reset.
+- **Port not found**: Install the appropriate USB drivers (CP210x for S2 Mini, CH340 for some ESP32 boards). Windows 10/11 usually includes these.
 - **Robot not moving**: Check power supply and servo connections; increase `motorCurrentDelay` in web settings if brownouts occur
 - **Can't connect to network**: 
   - Verify `ENABLE_NETWORK_MODE` is set to `true` and SSID/password are correct
@@ -158,10 +164,10 @@ The firmware now supports **dual-mode WiFi operation**, allowing the robot to si
 ### Access Point Mode (Default)
 By default, the robot creates its own WiFi network:
 - **SSID**: `Sesame-Controller-BETA`
-- **Password**: `12345678`
+- **Password**: `12345678` (Some devices may require you to change this if the default isn't connecting)
 - **IP Address**: `192.168.4.1`
 
-Connect to this network and navigate to any website to access the captive portal control interface.
+Connect to this network and navigate to any website to access the captive portal control interface. If you're having trouble connecting, try changing the password to something custom in the code's `#define AP_PASS` section.
 
 ### Network Mode (Optional)
 To connect the robot to your home or office WiFi network:
