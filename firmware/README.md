@@ -37,9 +37,12 @@ This document provides technical information on the firmware architecture, contr
    - Go to **Tools → Board → Boards Manager**
    - Search for "ESP32" and install "ESP32 by Espressif Systems" (v2.0.0 or higher)
 3. **Required Libraries** (install via Library Manager):
-   - `ESP32Servo`
+  - `ESP32Servo` **v3.0.9** (recommended)
    - `Adafruit SSD1306`
    - `Adafruit GFX Library`
+
+> [!IMPORTANT]
+> Use **ESP32Servo v3.0.9** for this project. Newer releases currently have a known issue where writing to one servo can affect multiple channels ([madhephaestus/ESP32Servo#103](https://github.com/madhephaestus/ESP32Servo/issues/103)).
 
 ### Flashing Steps
 1. **Connect your board** via USB to your computer
@@ -150,7 +153,7 @@ The firmware is built on the Arduino-ESP32 framework. Currently the firmware is 
 
 - **Board Support**: ESP32 by Espressif Systems (v2.0.0+ recommended). Lolin S2 Mini and ESP32-WROOM32 DevKitC are best supported.
 - **Libraries**:
-  - `ESP32Servo`: Low-level PWM timer management.
+  - `ESP32Servo` **v3.0.9**: Low-level PWM timer management. (Pinned due to known multi-servo command leak in newer versions: [madhephaestus/ESP32Servo#103](https://github.com/madhephaestus/ESP32Servo/issues/103))
   - `Adafruit_SSD1306` & `Adafruit_GFX`: Buffer-based OLED rendering.
   - `ESPmDNS`: mDNS service discovery (included with ESP32 board support).
   - `DNSServer`: Captive portal DNS redirection (included with ESP32 board support).
