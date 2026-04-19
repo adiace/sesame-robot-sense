@@ -14,7 +14,7 @@ ___
     <img src="https://github.com/user-attachments/assets/1663e022-0680-4053-97b4-53e669a6f07d" width="49%" alt="tutorial-button">
   </a>
   <a href="https://discord.gg/XDXkhQd8bC">
-    <img src="https://github.com/user-attachments/assets/cd704a20-35fa-4ccf-9a8c-151832436029" width="49%" alt="discord-button">
+    <img src="https://github.com/user-attachments/assets/378fcb48-5b12-4b46-9dcb-452432d49913" width="49%" alt="discord-button">
   </a>
 </p>
 
