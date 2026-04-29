@@ -94,7 +94,7 @@ inline void runWavePose() {
   runStandPose(0); 
   delayWithFace(200);
   setServoAngle(R4, 80); setServoAngle(L3, 180); 
-  setServoAngle(L2, 60); setServoAngle(R1, 100); 
+  setServoAngle(L2, 90); setServoAngle(R1, 100); 
   delayWithFace(200);
   setServoAngle(L3, 180); 
   delayWithFace(300); 
@@ -145,7 +145,7 @@ inline void runSwimPose() {
 inline void runPointPose() { 
   Serial.println(F("POINT")); 
   setFaceWithMode("point", FACE_ANIM_BOOMERANG); 
-  setServoAngle(L2, 60); setServoAngle(R1, 135); 
+  setServoAngle(L2, 90); setServoAngle(R1, 135); 
   setServoAngle(R2, 100); setServoAngle(L4, 180); 
   setServoAngle(L1, 25); setServoAngle(L3, 145);
   setServoAngle(R4, 80); setServoAngle(R3, 170); 
