@@ -27,11 +27,11 @@
 #define OLED_RESET -1
 #define OLED_I2C_ADDR 0x3C
 
-// I2C Pins for Distro Board V2
+// I2C Pins for Distro Board V2 / V3
 //#define I2C_SDA 8
 //#define I2C_SCL 9
 
-// I2C Pins for Distro Board
+// I2C Pins for Distro Board V1
 //#define I2C_SDA 21
 //#define I2C_SCL 22
 
@@ -83,10 +83,13 @@ String deviceHostname = "sesame-robot";
 // If you are using a different board, please adjust the servoPins array accordingly.
 // ======================================================================
 Servo servos[8];
-// Sesame Distro Board V2 Pinout
+// Sesame Distro Board V3 Pinout [NEW]
+//const int servoPins[8] = {4, 5, 6, 7, 10, 11, 12, 13};
+
+// Sesame Distro Board V2 Pinout (Legacy)
 //const int servoPins[8] = {4, 5, 6, 7, 15, 16, 17, 18};
 
-// Sesame Distro Board Pinout
+// Sesame Distro Board V1 Pinout (Legacy)
 //const int servoPins[8] = {15, 2, 23, 19, 4, 16, 17, 18};
 
 // Lolin S2 Mini Pinout

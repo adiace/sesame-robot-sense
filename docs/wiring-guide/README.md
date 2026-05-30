@@ -9,7 +9,7 @@ Complete wiring guides for the Sesame Robot.
 The project supports multiple wiring strategies that suit different build constraints:
 
 - **Lolin S2 Mini / hand wiring (RECOMMENDED FOR DIY BUILDS):** Uses a Lolin S2 Mini, loose headers, and point-to-point wiring. It is the lowest-cost option, easy to source, supports USB-C PD for tethered power, but demands patience to keep the harness tidy and leaves less room for mistakes. **Critical: Use 30AWG wire for data lines and 22AWG for power—larger gauge wire will make assembly nearly impossible.**
-- **Sesame Distro Board V2 (INCLUDED IN BUILD KITS):** The latest custom PCB with SMD components, supports both USB-C PD and battery power. Pre-flashed and included with all Sesame Build Kits. Advanced to hand-solder; professional assembly recommended if ordering separately.
+- **Sesame Distro Board V3 (INCLUDED IN NEW BUILD KITS):** The latest custom PCB with SMD components (V2 is also supported but legacy and limited to USB power due to battery brownouts), supports both USB-C PD and battery power. Pre-flashed and included with all Sesame Build Kits. Advanced to hand-solder; professional assembly recommended if ordering separately.
 - **Sesame Distro Board V1 / ESP32-DevKitC-32E (LEGACY):** Uses the custom Distro Board V1 PCB stacked on an ESP32-DevKitC-32E. Now phased out but still supported. V1 has known limitations and cannot run on tethered USB-C power (battery + buck converter required).
 
 Pick the approach that matches your component availability and comfort with managing wire bundles; the remainder of this guide dives into both workflows.
@@ -108,7 +108,7 @@ A buck converter takes any voltage (5V-12V) and drops it to a stable 5V for the 
 
 1. Make sure to solder the buck converter enable pads
 2. The buck converter is **required** for battery operation
-3. 2× 10440 Li-ion cells in a 2× AAA holder (2S, ~7.4 V nominal) work well with the buck and fit the chassis battery slot
+3. A Bambu Lab 14500 7.4V 800mAh Li-ion Battery fits the latest internal frame perfectly. V3 requires soldering a XH2.54 pigtail directly to the board.
 
 **Alternative power options:**
 
@@ -126,9 +126,7 @@ A buck converter takes any voltage (5V-12V) and drops it to a stable 5V for the 
 2. Wire it to two wires that lead to the power terminal
 3. This allows you to safely connect and disconnect the battery
 
-**Note on 2× AAA holders with 10440 Li-ion cells:**
-
-- Treat this as a 2S Li-ion pack; wire the holder leads through the switch and buck converter.
+**Note on Battery Connectors:**
 - **Always remove the 10440 cells from the holder and recharge them separately using a proper Li-ion charger.** Most AAA holders do not support safe Li-ion charging and attempting to charge in-holder can be dangerous.
 
 ### Sourcing the Distro Board

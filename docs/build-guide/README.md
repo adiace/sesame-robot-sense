@@ -1,19 +1,19 @@
 # Build Guide
+
 Complete build guide for the Sesame Robot.
 
 Use this walkthrough alongside the BOM, wiring guide, and printing notes to stay organized. The table below previews each phase, its goal, and the doc to reference if you get stuck.
 
-| Phase | Goal | Est. Time | Key References |
-| --- | --- | --- | --- |
-| 1. Gather parts | Print plastics and source electronics | 1–2 sessions | [hardware/bom](../../hardware/bom/README.md), [hardware/printing](../../hardware/printing/README.md) |
-| 2. Electronics & wiring | Build ~90% of the harness | 1 session | [docs/wiring-guide](../wiring-guide/README.md) |
-| 3. Hardware pre-assembly | Prep joints, feet, top cover | 1 session | This guide (Phase 3) |
-| 4. Hardware main assembly | Mount motors + electronics | 1–2 sessions | This guide (Phase 4) |
-| 5. Calibrate & finish | Flash tester, align joints, close up | 1 session | Firmware README + remaining sections |
+| Phase                     | Goal                                  | Est. Time     | Key References                                                                                 |
+| ------------------------- | ------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| 1. Gather parts           | Print plastics and source electronics | 1–2 sessions | [hardware/bom](../../hardware/bom/README.md), [hardware/printing](../../hardware/printing/README.md) |
+| 2. Electronics & wiring   | Build ~90% of the harness             | 1 session     | [docs/wiring-guide](../wiring-guide/README.md)                                                    |
+| 3. Hardware pre-assembly  | Prep joints, feet, top cover          | 1 session     | This guide (Phase 3)                                                                           |
+| 4. Hardware main assembly | Mount motors + electronics            | 1–2 sessions | This guide (Phase 4)                                                                           |
+| 5. Calibrate & finish     | Flash tester, align joints, close up  | 1 session     | Firmware README + remaining sections                                                           |
 
 > [!TIP]
 > Treat each phase like a milestone. Snap progress photos and mark issues before moving on so troubleshooting later is painless.
-
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=NIgoQVQF_Ng">
@@ -26,6 +26,7 @@ Use this walkthrough alongside the BOM, wiring guide, and printing notes to stay
 **Goal:** Print the full shell set and collect every electronic, connector, and fastener before any soldering starts.
 
 **You’ll need:**
+
 - [hardware/bom](../../hardware/bom/README.md) for electronics, power gear, and Amazon search links.
 - [hardware/printing](../../hardware/printing/README.md) for STL names, orientations, and support notes.
 
@@ -36,16 +37,17 @@ Here's what a complete set looks like:
 <img src="assets/all-hardware.png" alt="all-hardware" width="70%">
 
 **Phase 1 checklist**
+
 - [ ] All plastic parts printed, and cleaned up.
 - [ ] MG90 servos tested quickly on a servo tester or Arduino to catch DOA units.
-- [ ] Power plan decided (USB-C PD vs. battery + buck) and matching connectors sourced (2× 10440 Li-ion cells in a 2× AAA holder fit the stock battery cavity).
+- [ ] Power plan decided (USB-C PD vs. battery + buck) and matching connectors sourced (2× 14500 Li-ion cells in a 2× AAA holder fit the stock battery cavity).
 - [ ] Consumables stocked: solder, flux, heat-shrink, zip ties, M2 hardware.
 
 ## Phase 2: Electronics and Wiring
 
 **Goal:** Build 90% of the harness on the bench so the frame install is quick.
 
-1. Open the [wiring guide](../wiring-guide/README.md) and pick the section that matches your build (S2 Mini hand-wired, Distro Board V2, or Distro Board V1 legacy).
+1. Open the [wiring guide](../wiring-guide/README.md) and pick the section that matches your build (S2 Mini hand-wired, Distro Board V3/V2, or Distro Board V1 legacy).
 2. Lay out every connector in the order shown on the wiring diagram before soldering; this keeps the data lines from getting crossed.
 3. Tin and solder the rails/buck converter first, then route signal wires. Leave generous length for the motors that terminate near the hips.
 4. This is optional but you can also label each servo lead (S0–S7) using tape flags as soon as it is soldered. Future you will thank you.
@@ -54,6 +56,7 @@ Here's what a complete set looks like:
 > Stop before permanently wiring the power switch or OLED. Those final joints happen after the electronics are seated in the frame so you can dial the cable length exactly.
 
 **Phase 2 checklist**
+
 - [ ] Harness built per your wiring diagram with all joints strain-relieved.
 - [ ] Buck converter trimmed to 5.1 V output and shrink-wrapped.
 - [ ] Servo leads labeled and loosely bundled by destination.
@@ -105,7 +108,7 @@ The next step is loading the OLED and power switch into the top cover. At this s
 
 <img src="assets/switch-insert.png" alt="insert-rocker-switch" width="70%">
 
-2. **OLED Display:** Apply a small amount of solder to the pin headers on the display (tinning). Using the pre-crimped JST connector wires, match the wires to their respective marks on the display and solder them. 
+2. **OLED Display:** Apply a small amount of solder to the pin headers on the display (tinning). Using the pre-crimped JST connector wires, match the wires to their respective marks on the display and solder them.
 
 <img src="assets/display-soldering.png" alt="display-soldering" width="70%">
 
@@ -118,6 +121,7 @@ The next step is loading the OLED and power switch into the top cover. At this s
 <img src="assets/insert-display-enclosed.png" alt="securing-display" width="70%">
 
 **Phase 3 checklist**
+
 - [ ] Hip joints pre-loaded with servo horns, not yet attached to motors.
 - [ ] Leg pieces installed on every motor.
 - [ ] Power switch and OLED display installed in the top cover.
@@ -129,14 +133,16 @@ The next step is loading the OLED and power switch into the top cover. At this s
 
 1. **Battery Holder:** Insert the battery holder into the back of the internal frame piece. Route the red and black wires up the slot.
 2. **Motor Installation:** While holding the battery wires in place, insert the four remaining side motors. The motor shaft should be facing towards the outside of the internal frame.
-  - Insert motors at an angle and press them the rest of the way. Make sure not to pinch any wires at the bottom.
+
+- Insert motors at an angle and press them the rest of the way. Make sure not to pinch any wires at the bottom.
+
 3. **Secure Motors:** Use self-threading screws to permanently affix all four side motors to the frame.
 
 <img src="assets/insert-frame.png" alt="insert-motors" width="70%">
 
 <img src="assets/rotate-motor.png" alt="rotate-motor" width="70%">
 
-Make sure the motor shafts are closest to the outer edge of the frame. 
+Make sure the motor shafts are closest to the outer edge of the frame.
 
 <img src="assets/install-frame-motors.png" alt="complete-motors" width="70%">
 
@@ -154,8 +160,7 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 
 <img src="assets/secure-distro-board.png" alt="secure-distro-board" width="70%">
 
-
-5. **Distro Board V2 build (Build Kits):** Mount by gently bringing cables towards the center nicely so that the main board can sit properly. Attach the main board to the internal frame. It has two mounting holes in the corner that you attach using self-threading screws.
+5. **Distro Board V3/V2 build (Build Kits):** Mount by gently bringing cables towards the center nicely so that the main board can sit properly. Attach the main board to the internal frame. It has two mounting holes in the corner that you attach using self-threading screws.
 
 <img src="assets/secure-distro-boardv2.png" alt="secure-distro-boardv2" width="70%">
 
@@ -170,15 +175,16 @@ Before dropping hardware in, trim or bundle any stray wires so nothing can flop 
 > Never run calibration with joints attached. A misaligned horn can stall or strip a servo instantly. All motor shafts should be free spinning at this point.
 
 **For S2 Mini and Distro Board V1 (Legacy) Builds:**
+
 1. Inspect the harness to ensure no bare conductors can short during testing. Add heat-shrink or tape where needed.
 2. Connect a reliable USB-C cable and flash `sesame-motor-tester.ino` from the [debugging-firmware](../../firmware/debugging-firmware/) folder using Arduino IDE. If you have never flashed an ESP32 before, pause here and follow a quick tutorial so you are comfortable resetting/entering boot mode.
 3. Open the serial monitor. You should see the tester menu.
 4. Command all motors to 90°. Starting from Motor 0, plug its connector into the appropriate header. The servo should immediately whirr into the 90° position. Repeat for Motors 1–7. Skip to Step 4 below.
 
-**For Distro Board V2 (Build Kits):**
-If you are using the V2 Board from a Build Kit, it comes **pre-flashed** with the Sesame firmware! There is no need to plug into a computer and use Arduino IDE to flash firmware. 
+**For Distro Board V3/V2 (Build Kits):**
+If you are using a V3 or V2 Board from a Build Kit, it comes **pre-flashed** with the Sesame firmware! There is no need to plug into a computer and use Arduino IDE to flash firmware.
 
-1. **Power Up:** Plug the board into a strong USB power supply (fast chargers for phones or laptop chargers work great). Note: If you are using the V2 Distro board, it currently has instabilities with the battery system and won't work on batteries, you must plug via USB-C (A V3 Distro board fix will be sent). 
+1. **Power Up:** Plug the board into a strong USB power supply (fast chargers for phones or laptop chargers work great). Note: If you are using the V2 Distro board, it currently has instabilities with the battery system and won't work on batteries, you must plug via USB-C.
 2. **Connect to Portal:** Check the Wi-Fi networks on your phone or computer. The Sesame board will create an access point. Connect to it to open the controller portal. (If on desktop and the portal doesn't show, go to `sesame-root.local` in your browser. Mobile is recommended.)
 3. **Initialize PWM:** Tap the "Standby" button in the portal to initialize the PWM channels. The moment you plug a motor in, it will go to its correct active position.
 
@@ -188,9 +194,9 @@ If you are using the V2 Board from a Build Kit, it comes **pre-flashed** with th
 
 <img src="assets/sesame-angle-guide.png" alt="angle-guide" width="100%">
 
-5. **Plug Motors In:** Starting with Motor 0, plug the connector into the corresponding board header. 
-   - **Crucial:** Ensure the brown wire aligns with the ground rail! Upon plugging it in, you should hear it whir into life and hold position. 
-   - Repeat for all 8 motors. 
+5. **Plug Motors In:** Starting with Motor 0, plug the connector into the corresponding board header.
+   - **Crucial:** Ensure the brown wire aligns with the ground rail! Upon plugging it in, you should hear it whir into life and hold position.
+   - Repeat for all 8 motors.
 
 > [!TIP]
 > 99% of the time, if your motor is moving in the wrong direction, crashing, or being sporadic, the motor is plugged into the wrong slot. Check your wiring!
@@ -199,7 +205,7 @@ If you are using the V2 Board from a Build Kit, it comes **pre-flashed** with th
 
 Now we attach the joints while the motors are turned on and holding their "Stand" position.
 
-1. **Hip Joints:** Select the matching hip joint for your motor. While in "Stand" mode, push the hip joint onto the motor shaft at a 45-degree angle. 
+1. **Hip Joints:** Select the matching hip joint for your motor. While in "Stand" mode, push the hip joint onto the motor shaft at a 45-degree angle.
 2. **Test Angles:** Tap "Rest" in the portal. The hip joint should move perfectly parallel to the body. Tap "Stand" again, and it should go back to 45°. Alternate this to ensure it's placed correctly.
 3. **Fasten Hip:** If it looks good, fasten the hip joint to the motor using an M2.5 machine screw through the main hole into the motor shaft. Gently tighten (don't over-torque against the motor as this may cause a brownout).
 4. **Legs:** Repeat the same process with the leg joints. Check against "Rest" and "Stand", ensure nothing collides, and then affix using screws.
@@ -208,11 +214,11 @@ Now we attach the joints while the motors are turned on and holding their "Stand
 
 ## Final Wiring and Top Cover
 
-Now to clean up the robot and secure everything. 
+Now to clean up the robot and secure everything.
 
 1. **Battery Connections:** Insert the battery wires into the screw terminal on the board and use a flathead screwdriver to tighten them securely.
 2. **Wire Routing:** Flip the robot over. There are channels for all the wires on the underside. Securely press all of the wires into these channels.
-3. **Bundling:** Separate the wires gently into two groups (left and right). Wrap a zip tie around each bundle, fold it once, and tighten the zip tie to create a tight bundle. This helps the top cover fit seamlessly. 
+3. **Bundling:** Separate the wires gently into two groups (left and right). Wrap a zip tie around each bundle, fold it once, and tighten the zip tie to create a tight bundle. This helps the top cover fit seamlessly.
 
 <img src="assets/wire-routing.png" alt="wire-routing" width="70%">
 
@@ -232,19 +238,20 @@ Now to clean up the robot and secure everything.
 
 <img src="assets/insert-battery.png" alt="insert-battery" width="70%">
 
-1. Set the bottom cover in place, checking that no wires are trapped. Use the remaining two self-threading screws into the bottom to secure it. 
+1. Set the bottom cover in place, checking that no wires are trapped. Use the remaining two self-threading screws into the bottom to secure it.
 
 <img src="assets/screw-on-bottom-cover.png" alt="screw-on-bottom-cover" width="70%">
 
 2. You can apply the included sticky pads to the feet if you like!
 
 **Phase 4 checklist**
+
 - [ ] Motors mounted and screwed in on hip and leg joints.
 - [ ] Harness routed into channels, zip-tied without pinch points.
 - [ ] Top and bottom covers installed.
 
 > [!TIP]
-> A common issue on battery power (if you upgrade) is that your Sesame robot will crash on movement. Setting the motor current delay higher in the settings may help, but upgrading to a Lithium Polymer (LiPo) cell often solves it for advanced users! 
+> A common issue on battery power (if you upgrade) is that your Sesame robot will crash on movement. Setting the motor current delay higher in the settings may help, but upgrading to a Lithium Polymer (LiPo) cell often solves it for advanced users!
 
 Great job! The hardware is complete.
 
@@ -255,12 +262,14 @@ Great job! The hardware is complete.
 Now we just need to do a few checks to make sure everything is working and we can flash the firmware onto the microcontroller.
 
 **Sanity checks**
+
 1. Toggle the power switch (if you installed a battery) and confirm it fully disconnects the pack.
 2. Confirm the USB-C port is accessible for future firmware updates.
 3. Inspect the OLED wiring one last time to ensure SDA/SCL aren’t swapped.
 
 **Flash production firmware (For DIY / S2 Mini / Distro V1)**
 If you are using the V2 Build kit board, you can skip this step! It is pre-flashed.
+
 1. Choose the code variant from the firmware folder. Customize pin definitions if you're using a different ESP32.
 2. Use Arduino IDE to flash the full firmware bundle (motors + faces). Detailed notes live in [firmware/README.md](../../firmware/README.md).
 3. Connect to Sesame’s Wi-Fi AP, load the control page, and trigger a pose to verify everything moves as expected.
