@@ -28,14 +28,14 @@ Every part required to assemble Sesame is cataloged here. Pick the wiring strate
 | 3-pin male headers | 8 | Build the servo breakout; match spacing to MG90 plugs | [Amazon](https://www.amazon.com/s?k=pin+header+strip) |
 | Buck converter (5–12 V in to stable 5V/3A out) | 1 | Powers motors + MCU when using batteries | [Amazon](https://www.amazon.com/s?k=3a+dc+dc+buck+converter+module) |
 
-## Wiring Option B – Sesame Distro Board V2 (Included in Build Kits)
+## Wiring Option B – Sesame Distro Board V3/V2 (Included in Build Kits)
 
 > [!NOTE]
 > If you purchased a Sesame Build Kit, your V2 Distro Board is already assembled, pre-flashed, and included. You don't need to order these parts separately.
 
 | Item | Qty | Notes | Source |
 | --- | --- | --- | --- |
-| Sesame Distro Board V2 PCB | 1 | Fully SMD design. Order with PCBway assembly service or attempt advanced hand soldering. See [ordering guide](/hardware/pcb/README.md) | [GitHub](/hardware/pcb/README.md) |
+| Sesame Distro Board V3/V2 PCB | 1 | Fully SMD design. Order with PCBway assembly service or attempt advanced hand soldering. See [ordering guide](/hardware/pcb/README.md) | [GitHub](/hardware/pcb/README.md) |
 
 ## Wiring Option C – Sesame Distro Board V1 / ESP32-DevKitC-32E (Legacy)
 
@@ -56,11 +56,9 @@ Every part required to assemble Sesame is cataloged here. Pick the wiring strate
 
 | Item | Qty | Notes | Source |
 | --- | --- | --- | --- |
-| 3S 450 mAh LiPo with XT30 | 1 | Recommended wireless pack; ensure high-discharge rating | [Amazon](https://www.amazon.com/s?k=3s+450mah+lipo+xt30) |
-| 2× AAA holder | 1 set | 2S pack using AAA size Li-Ion Batteries (~7.4 V nominal) that fits the chassis battery slot; use a buck converter | [Amazon](https://www.amazon.com/s?k=2x+aaa+battery+holder) |
-| 10440 Li-ion cells (350–400 mAh typical) | 2 | Standard 10×44 mm Li-ion cells; buy spares | [Amazon](https://www.amazon.com/s?k=10440+li-ion+cell+350mah) |
-| 2-slot 10440 Li-ion charger | 1 | Charge cells outside the holder; avoid in-holder charging unless the holder is designed for it | [Amazon](https://www.amazon.com/s?k=10440+li-ion+charger+2+slot) |
-| XT30 female pigtail | 1 | Interface battery to switch/PCB without cutting stock leads | [Amazon](https://www.amazon.com/s?k=xt30+female+pigtail) |
+| Bambu Lab 14500 7.4V 800mAh Li-ion Battery | 1 | Recommended wireless pack; cheap, effective, designed to fit inside the new internal frame. | [Bambu Lab](https://us.store.bambulab.com/products/14500-7-4v-800mah-li-ion-battery-1pcs) |
+| Bambu Lab 7.4V Lithium battery charger | 1 | Matching charger for the 14500 battery with XH2.54 connector. | [Bambu Lab](https://us.store.bambulab.com/products/7-4v-lithium-battery-charger-with-xh2-54-connector-1pcs?id=593290727051776002) |
+| XH2.54 female pigtail | 1 | Interface battery to switch/PCB without cutting stock leads (V3 requires soldering). | [Amazon](https://www.amazon.com/s?k=xh2.54+pigtail+cable) |
 
 ## Fasteners & Mechanical Hardware
 
@@ -87,9 +85,9 @@ Print the 11-part part set outlined in [printing/README.md](../printing/README.m
 
 - Sesame needs at least 5 V at 3 A available at the rails. 
 - **Lolin S2 Mini:** Can be powered via USB-C PD (5V/3A capable) for tethered operation, or via battery + buck converter.
-- **Distro Board V2:** Supports both USB-C PD (5V/3A) for tethered operation AND battery + buck converter. Included in all Sesame Build Kits.
+- **Distro Board V3/V2:** Supports both USB-C PD (5V/3A) for tethered operation AND battery + buck converter. Included in all Sesame Build Kits.
 - **Distro Board V1 (Legacy):** Cannot run on tethered USB-C power due to design limitations. Must use battery + buck converter for operation.
 - When battery powering either build, route the pack through the rocker switch and buck converter before it touches the rails, mirroring the schematic in [docs/wiring-guide/README.md](../../docs/wiring-guide/README.md).
 - **Never cut the factory battery connector off the pack.** Instead, create adapter pigtails using XT30 or JST RCY leads so the pack remains chargeable.
-- A 2× 10440 Li-ion + 2× AAA holder pack fits the stock battery cavity and works well with the existing power switch + buck converter.
-- **Always remove and charge 10440 cells separately in a proper Li-ion charger.** Do not charge them while inside the AAA holder unless the holder explicitly supports safe Li-ion charging (most do not).
+- A Bambu Lab 14500 7.4V 800mAh Li-ion battery fits the new stock battery cavity (V3 requires printing the new internal frame).
+- **Always apply heat shrink tubing to connectors**. Be extremely careful when cutting and soldering battery connectors. If you are still using the legacy 10440 solution make sure the cells are removed during soldering.

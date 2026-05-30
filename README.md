@@ -55,9 +55,9 @@ Follow these steps to build your own Sesame Robot:
 
 ### 1. Gather Parts 
 Check the **[Bill of Materials (BOM)](hardware/bom/README.md)** for a complete list of required electronics and hardware.
-*   Microcontroller: Lolin S2 Mini (recommended for DIY builds), Sesame Distro Board V2 (included in Build Kits, pre-flashed), or ESP32-DevKitC-32E with Distro Board V1 (legacy)
+*   Microcontroller: Lolin S2 Mini (recommended for DIY builds), Sesame Distro Board V3 (Current, pre-flashed, supports Bambu Lab battery), V2 (legacy, USB-only), or ESP32-DevKitC-32E with Distro Board V1 (legacy)
 *   Actuators: 8x MG90 Servos
-*   Power: 5V 3A source (USB-C PD for S2 Mini and V2 Distro Board, or battery + buck converter; see BOM for the 2× 10440 Li-ion + 2× AAA holder option)
+*   Power: 5V 3A source (USB-C PD for S2 Mini and V2 Distro Board, or battery + buck converter; see BOM for the Bambu Lab 14500 7.4V 800mAh Li-ion Battery option)
 
 ### 2. Print Parts 
 Download the STLs and follow the **[Printing Guide](hardware/printing/README.md)**.
