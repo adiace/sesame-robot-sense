@@ -442,10 +442,11 @@ void setup() {
   Serial.begin(115200);
   randomSeed(micros());
   
-  // I2C Init — no explicit pins (Wire.begin(5,6) breaks on XIAO ESP32-S3 board package)
+  // I2C Init — explicit pins required; Wire.begin() with no args no longer maps to
+  // GPIO5/6 on current Seeed XIAO ESP32-S3 board package (confirmed via scan sketch)
   // No Wire.setClock() — default 100kHz is more stable; test sketch at 100kHz found IMU fine
   delay(500);    // MPU-6050 power-on: I2C interface not ready until 100ms after Vcc stable
-  Wire.begin();
+  Wire.begin(I2C_SDA, I2C_SCL);
   delay(50);
   imuSetup();    // before OLED: SSD1306 library can corrupt Wire state even with fixes above
 

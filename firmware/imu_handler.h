@@ -6,11 +6,13 @@
 #include "pins.h"
 
 // MPU-6050 / MPU-6500 clone direct I2C driver.
-// This is the Phase 1 code verbatim with three Phase 2 changes only:
-//   1. Wire.endTransmission(false) → (true)  — repeated start is buggy on ESP32-S3
-//   2. imuEmit() outputs JSON + pushes to imuEventQueue instead of Serial plain text
-//   3. FLIPPED no longer returns early so LEVEL can fire on flip-back.
-//      tiltRate > 200°/s added to tap check to prevent false TAPPED on flip-back.
+// Phase 1 logic with minimal Phase 2 changes:
+//   - Wire.endTransmission(true) throughout (ESP32-S3 repeated-start bug)
+//   - imuEmit() writes JSON to Serial + pushes to imuEventQueue (Core 0 TCP)
+//   - FLIP uses raw-accel flipAngle = atan2(horiz, az) (0–180°) instead of
+//     slow cfPitch/cfRoll so it detects inversion in < 100ms
+//   - goto check_level after every event so LEVEL always runs
+//   - flipRate blocks TAPPED during flip-back motion
 
 // ── MPU register addresses ──────────────────────────────────────────────────
 #define MPU_REG_SMPLRT_DIV    0x19
@@ -25,24 +27,26 @@
 #define MPU_REG_PWR_MGMT_1    0x6B
 #define MPU_REG_WHO_AM_I      0x75
 
-// ── Thresholds (Phase 1 values — do not change) ──────────────────────────────
-#define IMU_FLIP_ANGLE_DEG    120.0f
-#define IMU_FLIP_SUSTAIN_MS   200
+// ── Thresholds ──────────────────────────────────────────────────────────────
+// FLIPPED: raw-accel flipAngle (0° upright → 180° inverted) > 100°, 5 stable samples
+#define IMU_FLIP_ANGLE_DEG    100.0f
+#define IMU_FLIP_SAMPLES        5      // 5 × 20ms = 100ms
 
-#define IMU_SHAKE_WIN_SIZE    20
-#define IMU_SHAKE_VARIANCE    0.40f    // g²
-
-#define IMU_TAP_JERK          60.0f   // m/s²/s
+// TAPPED: jerk spike; blocked when device is rotating (flip/flip-back)
+#define IMU_TAP_JERK          120.0f  // m/s²/s — 60 caught noise; 120 still sensitive for petting
 #define IMU_TAP_LOCKOUT_MS    250
-#define IMU_TAP_RATE_MAX      200.0f  // °/s — Phase 2 addition: blocks tap during flip-back
+#define IMU_TAP_RATE_MAX     150.0f   // °/s of flipAngle change — blocks tap during flip
 
+// PICKUP: EMA residual (Phase 1 values)
 #define IMU_EMA_ALPHA         0.005f
 #define IMU_PICKUP_RESIDUAL   1.2f    // m/s²
 #define IMU_PICKUP_MS         120
 
+// FREEFALL: hardware registers (Phase 1 values)
 #define IMU_FF_THR_VAL        10
 #define IMU_FF_DUR_VAL        80
 
+// LEVEL: complementary filter < 15° sustained 400ms (Phase 1 values)
 #define IMU_LEVEL_ANGLE_DEG   15.0f
 #define IMU_LEVEL_SUSTAIN_MS  400
 
@@ -51,7 +55,6 @@ enum ImuEvent : uint8_t {
   IMU_NONE = 0,
   IMU_PICKUP,
   IMU_FLIPPED,
-  IMU_SHAKEN,
   IMU_TAPPED,
   IMU_FREEFALL,
   IMU_LEVEL,
@@ -63,20 +66,17 @@ static ImuEvent lastEvent = IMU_NONE;
 
 static unsigned long imuLastPollMs = 0;
 
-// Complementary filter angles (degrees)
+// flipAngle tracking (raw accel, 0–180°)
+static float prevFlipAngle = 0.0f;
+static int   flipSamples   = 0;
+
+// Complementary filter (slow alpha, used for LEVEL only)
 static float cfPitch = 0.0f;
 static float cfRoll  = 0.0f;
-static float prevTilt = 0.0f;  // for tiltRate (Phase 2 tap guard)
+static bool  cfSeeded = false;
 
-// Flip / Level sustain
-static unsigned long imuFlipStart  = 0;
+// Level sustain
 static unsigned long imuLevelStart = 0;
-
-// Shake — sliding window
-static float   shakeWin[IMU_SHAKE_WIN_SIZE] = {};
-static uint8_t shakeIdx  = 0;
-static float   shakeSum  = 0.0f;
-static float   shakeSumSq = 0.0f;
 
 // Tap
 static float         prevMag       = 9.81f;
@@ -91,13 +91,13 @@ static bool imuWrite(uint8_t reg, uint8_t val) {
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(reg);
   Wire.write(val);
-  return Wire.endTransmission(true) == 0;  // Phase 2: true not false (ESP32-S3 bug)
+  return Wire.endTransmission(true) == 0;
 }
 
 static bool imuReadAccel(float &ax, float &ay, float &az) {
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(MPU_REG_ACCEL_XOUT_H);
-  if (Wire.endTransmission(true) != 0) return false;  // Phase 2: true
+  if (Wire.endTransmission(true) != 0) return false;
   Wire.requestFrom((uint8_t)MPU6050_ADDR, (uint8_t)14);
   if (Wire.available() < 14) return false;
   int16_t axr = ((int16_t)Wire.read() << 8) | Wire.read();
@@ -112,16 +112,14 @@ static bool imuReadAccel(float &ax, float &ay, float &az) {
 static bool imuReadIntStatus(uint8_t &status) {
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(MPU_REG_INT_STATUS);
-  if (Wire.endTransmission(true) != 0) return false;  // Phase 2: true
+  if (Wire.endTransmission(true) != 0) return false;
   Wire.requestFrom((uint8_t)MPU6050_ADDR, (uint8_t)1);
   if (!Wire.available()) return false;
   status = Wire.read();
   return true;
 }
 
-// ── Phase 2: JSON emit via FreeRTOS queue ────────────────────────────────────
-// Core 0 drains imuEventQueue in serviceTcpClient() and sends via tcpClient.
-// imuPoll() on Core 1 never touches WiFi — no blocking, dt stays accurate.
+// ── TCP push via queue ────────────────────────────────────────────────────────
 extern QueueHandle_t imuEventQueue;
 
 static void imuEmit(ImuEvent ev, float accel = 0.0f, float pitch = 0.0f, float roll = 0.0f) {
@@ -131,12 +129,14 @@ static void imuEmit(ImuEvent ev, float accel = 0.0f, float pitch = 0.0f, float r
   switch (ev) {
     case IMU_PICKUP:   n = "PICKUP";   break;
     case IMU_FLIPPED:  n = "FLIPPED";  break;
-    case IMU_SHAKEN:   n = "SHAKEN";   break;
     case IMU_TAPPED:   n = "TAPPED";   break;
     case IMU_FREEFALL: n = "FREEFALL"; break;
     case IMU_LEVEL:    n = "LEVEL";    break;
     default:           n = "UNKNOWN";  break;
   }
+  // Reset LEVEL sustain timer so LEVEL always requires 400ms after any non-LEVEL event
+  if (ev != IMU_LEVEL) imuLevelStart = 0;
+
   char json[128];
   snprintf(json, sizeof(json),
     "{\"type\":\"imu_event\",\"event\":\"%s\",\"accel\":%.2f,\"pitch\":%.1f,\"roll\":%.1f}",
@@ -146,11 +146,46 @@ static void imuEmit(ImuEvent ev, float accel = 0.0f, float pitch = 0.0f, float r
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
+
+// I2C bus recovery: clock SCL 9 times to unstick a slave holding SDA low.
+// Needed when the ESP32 is reset mid-transaction (e.g. during upload).
+static void imuBusRecover() {
+  pinMode(I2C_SDA, INPUT_PULLUP);
+  pinMode(I2C_SCL, OUTPUT);
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(I2C_SCL, HIGH); delayMicroseconds(5);
+    digitalWrite(I2C_SCL, LOW);  delayMicroseconds(5);
+  }
+  // Send a STOP condition
+  pinMode(I2C_SDA, OUTPUT);
+  digitalWrite(I2C_SDA, LOW);
+  delayMicroseconds(5);
+  digitalWrite(I2C_SCL, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(I2C_SDA, HIGH);
+  delayMicroseconds(5);
+  // Return pins to Wire control
+  pinMode(I2C_SDA, INPUT_PULLUP);
+  pinMode(I2C_SCL, INPUT_PULLUP);
+  delay(10);
+}
+
 void imuSetup() {
+  // Probe first; if no response, attempt bus recovery and retry once
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(MPU_REG_WHO_AM_I);
   Wire.endTransmission(true);
   Wire.requestFrom((uint8_t)MPU6050_ADDR, (uint8_t)1);
+  if (!Wire.available()) {
+    Serial.println("IMU: no response — attempting I2C bus recovery");
+    imuBusRecover();
+    Wire.begin(I2C_SDA, I2C_SCL);
+    delay(50);
+    Wire.beginTransmission(MPU6050_ADDR);
+    Wire.write(MPU_REG_WHO_AM_I);
+    Wire.endTransmission(true);
+    Wire.requestFrom((uint8_t)MPU6050_ADDR, (uint8_t)1);
+  }
   if (!Wire.available()) { Serial.println("IMU: no response"); return; }
   uint8_t whoami = Wire.read();
   Serial.print("IMU: WHO_AM_I=0x"); Serial.println(whoami, HEX);
@@ -166,11 +201,6 @@ void imuSetup() {
   imuWrite(MPU_REG_INT_ENABLE, 0x80);
 
   pickupEma = 9.81f;
-  for (int i = 0; i < IMU_SHAKE_WIN_SIZE; i++) {
-    shakeWin[i] = 1.0f;
-    shakeSum   += 1.0f;
-    shakeSumSq += 1.0f;
-  }
   imuReady = true;
   Serial.println("IMU: ready");
 }
@@ -189,57 +219,45 @@ void imuPoll() {
   float mag  = sqrtf(ax*ax + ay*ay + az*az);
   float magG = mag / 9.81f;
 
-  // ── Complementary filter ─────────────────────────────────────────────────
+  // ── flipAngle: atan2(horiz, az) = 0° upright, 90° sideways, 180° inverted
+  // Fast raw-accel computation — no filter lag, detects inversion immediately.
+  float horiz     = sqrtf(ax*ax + ay*ay);
+  float flipAngle = atan2f(horiz, az) * (180.0f / M_PI);
+  float flipRate  = fabsf(flipAngle - prevFlipAngle) / dt;  // °/s
+  prevFlipAngle   = flipAngle;
+
+  // ── Complementary filter for LEVEL only (slow — filters out tap jolts) ───
   float accelPitch = atan2f(-ax, sqrtf(ay*ay + az*az)) * (180.0f / M_PI);
   float accelRoll  = atan2f( ay, az)                    * (180.0f / M_PI);
-  const float cfAlpha = 0.85f;  // Phase 1 value
+  if (!cfSeeded) {
+    cfPitch = accelPitch; cfRoll = accelRoll; cfSeeded = true;
+  }
+  const float cfAlpha = 0.85f;
   cfPitch = cfAlpha * cfPitch + (1.0f - cfAlpha) * accelPitch;
   cfRoll  = cfAlpha * cfRoll  + (1.0f - cfAlpha) * accelRoll;
-
   float tiltAngle = sqrtf(cfPitch*cfPitch + cfRoll*cfRoll);
-  float tiltRate  = fabsf(tiltAngle - prevTilt) / dt;  // °/s — Phase 2 tap guard
-  prevTilt = tiltAngle;
 
   // ── Shake window variance ────────────────────────────────────────────────
-  float old = shakeWin[shakeIdx];
-  shakeSum -= old; shakeSumSq -= old * old;
-  shakeWin[shakeIdx] = magG;
-  shakeSum += magG; shakeSumSq += magG * magG;
-  shakeIdx = (shakeIdx + 1) % IMU_SHAKE_WIN_SIZE;
-  float shakeMean = shakeSum / IMU_SHAKE_WIN_SIZE;
-  float shakeVar  = (shakeSumSq / IMU_SHAKE_WIN_SIZE) - (shakeMean * shakeMean);
-
   // ── Jerk ─────────────────────────────────────────────────────────────────
   float jerk = (mag - prevMag) / dt;
   prevMag = mag;
-  bool tapRising = (jerk > IMU_TAP_JERK)
-                && (tiltRate < IMU_TAP_RATE_MAX)   // Phase 2: block during rotation
-                && (now > tapLockoutEnd);
 
   // ── EMA residual ─────────────────────────────────────────────────────────
   pickupEma = pickupEma * (1.0f - IMU_EMA_ALPHA) + mag * IMU_EMA_ALPHA;
-  float pickupResidual = fabsf(mag - pickupEma);
+  float pickupResidual = mag - pickupEma;  // positive only: pickup = upward accel (mag > EMA)
 
-  // ── Freefall ─────────────────────────────────────────────────────────────
+  // ── FREEFALL ─────────────────────────────────────────────────────────────
   uint8_t intStatus = 0;
   imuReadIntStatus(intStatus);
-  if (intStatus & 0x80) { imuEmit(IMU_FREEFALL, magG, cfPitch, cfRoll); return; }
+  if (intStatus & 0x80) { imuEmit(IMU_FREEFALL, magG, cfPitch, cfRoll); goto check_level; }
 
-  // ── FLIPPED — tilt > 120° sustained 200ms ───────────────────────────────
-  if (tiltAngle > IMU_FLIP_ANGLE_DEG) {
-    if (imuFlipStart == 0) imuFlipStart = now;
-    if (now - imuFlipStart >= IMU_FLIP_SUSTAIN_MS)
+  // ── FLIPPED: flipAngle > 100°, 5 consecutive stable samples ─────────────
+  if (flipAngle > IMU_FLIP_ANGLE_DEG) {
+    if (++flipSamples >= IMU_FLIP_SAMPLES)
       imuEmit(IMU_FLIPPED, magG, cfPitch, cfRoll);
-    // Phase 2: goto instead of return so LEVEL check below still runs
-    goto check_level;
+    goto check_level;  // suppress TAPPED/PICKUP while inverted
   } else {
-    imuFlipStart = 0;
-  }
-
-  // ── SHAKEN ───────────────────────────────────────────────────────────────
-  if (shakeVar > IMU_SHAKE_VARIANCE) {
-    imuEmit(IMU_SHAKEN, magG, cfPitch, cfRoll);
-    goto check_level;
+    flipSamples = 0;
   }
 
   // ── PICKUP ───────────────────────────────────────────────────────────────
@@ -249,18 +267,19 @@ void imuPoll() {
       pickupEma = mag;
       imuEmit(IMU_PICKUP, magG, cfPitch, cfRoll);
     }
+    goto check_level;
   } else {
     pickupStart = 0;
   }
 
   // ── TAPPED ───────────────────────────────────────────────────────────────
-  if (tapRising) {
+  if (jerk > IMU_TAP_JERK && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
     tapLockoutEnd = now + IMU_TAP_LOCKOUT_MS;
     imuEmit(IMU_TAPPED, magG, cfPitch, cfRoll);
+    goto check_level;
   }
 
 check_level:
-  // Always checked — Phase 2 fix so LEVEL fires after flip-back
   if (lastEvent != IMU_NONE && lastEvent != IMU_LEVEL) {
     if (tiltAngle < IMU_LEVEL_ANGLE_DEG) {
       if (imuLevelStart == 0) imuLevelStart = now;
