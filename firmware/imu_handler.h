@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <math.h>
 #include "pins.h"
+#include "wifi_log.h"
 
 // MPU-6050 / MPU-6500 clone direct I2C driver.
 // Phase 1 logic with minimal Phase 2 changes:
@@ -33,14 +34,16 @@
 #define IMU_FLIP_SAMPLES        5      // 5 × 20ms = 100ms
 
 // TAPPED: jerk spike; blocked when device is rotating (flip/flip-back)
-#define IMU_TAP_JERK          120.0f  // m/s²/s — 60 caught noise; 120 still sensitive for petting
-#define IMU_TAP_LOCKOUT_MS    250
-#define IMU_TAP_RATE_MAX     150.0f   // °/s of flipAngle change — blocks tap during flip
+#define IMU_TAP_JERK           28.0f  // m/s²/s — finger tap threshold
+#define IMU_TAP_LOCKOUT_MS    150
+#define IMU_TAP_RATE_MAX      80.0f   // °/s — real taps: 1–52; handling: 83–652
 
-// PICKUP: EMA residual (Phase 1 values)
-#define IMU_EMA_ALPHA         0.005f
-#define IMU_PICKUP_RESIDUAL   1.2f    // m/s²
-#define IMU_PICKUP_MS         120
+// PICKUP: EMA residual
+// Higher alpha = EMA tracks faster = tap jolts don't inflate residual as long.
+// Higher residual threshold = needs more sustained upward accel (real pickup vs tap).
+#define IMU_EMA_ALPHA         0.02f
+#define IMU_PICKUP_RESIDUAL   3.2f    // m/s² — must be sustained lifting motion, not a tap jolt
+#define IMU_PICKUP_MS        160      // ms sustained above threshold
 
 // FREEFALL: hardware registers (Phase 1 values)
 #define IMU_FF_THR_VAL        10
@@ -48,7 +51,7 @@
 
 // LEVEL: complementary filter < 15° sustained 400ms (Phase 1 values)
 #define IMU_LEVEL_ANGLE_DEG   15.0f
-#define IMU_LEVEL_SUSTAIN_MS  400
+#define IMU_LEVEL_SUSTAIN_MS  3000
 
 // ── Event enum ──────────────────────────────────────────────────────────────
 enum ImuEvent : uint8_t {
@@ -63,6 +66,7 @@ enum ImuEvent : uint8_t {
 // ── State ───────────────────────────────────────────────────────────────────
 static bool     imuReady  = false;
 static ImuEvent lastEvent = IMU_NONE;
+static ImuEvent imuPendingReaction = IMU_NONE;  // consumed by loop() to trigger face/move
 
 static unsigned long imuLastPollMs = 0;
 
@@ -79,12 +83,26 @@ static bool  cfSeeded = false;
 static unsigned long imuLevelStart = 0;
 
 // Tap
-static float         prevMag       = 9.81f;
-static unsigned long tapLockoutEnd = 0;
+static float         prevMag        = 9.81f;
+static unsigned long tapLockoutEnd  = 0;
+// Require a LEVEL event between a PICKUP and the next TAPPED.
+// Prevents set-down impact from firing as a tap.
+static bool          tapNeedsLevel  = false;
+// Deferred tap: confirm on the next poll that mag returned to baseline
+// (distinguishes a real tap from the initial jolt of a pickup)
+static bool          tapPending     = false;
+static float         tapPendingMagG = 0.0f;
+static float         tapPendingP    = 0.0f;
+static float         tapPendingR    = 0.0f;
 
 // Pickup
 static float         pickupEma   = 9.81f;
 static unsigned long pickupStart = 0;
+
+// Freefall (software): mag < 0.4g sustained 120ms
+static unsigned long freefallStart = 0;
+#define IMU_FF_MAG_THRESH  3.9f   // m/s² ≈ 0.4g
+#define IMU_FF_SUSTAIN_MS  120
 
 // ── I2C helpers ──────────────────────────────────────────────────────────────
 static bool imuWrite(uint8_t reg, uint8_t val) {
@@ -123,7 +141,9 @@ static bool imuReadIntStatus(uint8_t &status) {
 extern QueueHandle_t imuEventQueue;
 
 static void imuEmit(ImuEvent ev, float accel = 0.0f, float pitch = 0.0f, float roll = 0.0f) {
-  if (ev == lastEvent) return;
+  // TAPPED can repeat within same episode — the tapLockoutEnd already gates it.
+  // All other events dedup until a different event fires (e.g. PICKUP stays PICKUP).
+  if (ev == lastEvent && ev != IMU_TAPPED) return;
   lastEvent = ev;
   const char* n;
   switch (ev) {
@@ -137,13 +157,29 @@ static void imuEmit(ImuEvent ev, float accel = 0.0f, float pitch = 0.0f, float r
   // Reset LEVEL sustain timer so LEVEL always requires 400ms after any non-LEVEL event
   if (ev != IMU_LEVEL) imuLevelStart = 0;
 
+  imuPendingReaction = ev;  // consumed by loop() via imuConsumeReaction()
+
   char json[128];
   snprintf(json, sizeof(json),
     "{\"type\":\"imu_event\",\"event\":\"%s\",\"accel\":%.2f,\"pitch\":%.1f,\"roll\":%.1f}",
     n, accel, pitch, roll);
-  Serial.println(json);
+  dlog("%s", json);                                          // Serial + WiFi log
   if (imuEventQueue) xQueueSend(imuEventQueue, json, 0);
 }
+
+static ImuEvent imuConsumeReaction() {
+  ImuEvent ev = imuPendingReaction;
+  imuPendingReaction = IMU_NONE;
+  return ev;
+}
+
+// Reset the LEVEL sustain timer — call after a reaction so the face shows for
+// the full IMU_LEVEL_SUSTAIN_MS before LEVEL can fire and return to idle.
+static void imuResetLevelTimer() { imuLevelStart = millis(); }
+
+// Suppress tap detection for ms milliseconds — call after voice pipeline ends
+// to prevent speaker vibration or acoustic feedback from auto-triggering again.
+static void imuSuppressTap(uint32_t ms) { tapLockoutEnd = millis() + ms; }
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -196,9 +232,10 @@ void imuSetup() {
   imuWrite(MPU_REG_CONFIG,       0x03);
   imuWrite(MPU_REG_ACCEL_CONFIG, 0x10);
   imuWrite(MPU_REG_GYRO_CONFIG,  0x08);
-  imuWrite(MPU_REG_FF_THR,   IMU_FF_THR_VAL);
-  imuWrite(MPU_REG_FF_DUR,   IMU_FF_DUR_VAL);
-  imuWrite(MPU_REG_INT_ENABLE, 0x80);
+  // Disable hardware interrupts — the freefall/motion-detect interrupt (0x80)
+  // fires spuriously on MPU-6500 clones (WHO_AM_I=0x70) where bit 7 of
+  // INT_STATUS is motion-detect, not freefall. We use software mag threshold.
+  imuWrite(MPU_REG_INT_ENABLE, 0x00);
 
   pickupEma = 9.81f;
   imuReady = true;
@@ -246,45 +283,80 @@ void imuPoll() {
   pickupEma = pickupEma * (1.0f - IMU_EMA_ALPHA) + mag * IMU_EMA_ALPHA;
   float pickupResidual = mag - pickupEma;  // positive only: pickup = upward accel (mag > EMA)
 
-  // ── FREEFALL ─────────────────────────────────────────────────────────────
-  uint8_t intStatus = 0;
-  imuReadIntStatus(intStatus);
-  if (intStatus & 0x80) { imuEmit(IMU_FREEFALL, magG, cfPitch, cfRoll); goto check_level; }
+  // ── FREEFALL (software threshold — hardware interrupt unreliable on clones) ─
+  if (mag < IMU_FF_MAG_THRESH) {
+    if (freefallStart == 0) freefallStart = now;
+    if (now - freefallStart >= IMU_FF_SUSTAIN_MS) {
+      imuEmit(IMU_FREEFALL, magG, cfPitch, cfRoll);
+      freefallStart = 0;
+      goto check_level;
+    }
+  } else {
+    freefallStart = 0;
+  }
 
   // ── FLIPPED: flipAngle > 100°, 5 consecutive stable samples ─────────────
   if (flipAngle > IMU_FLIP_ANGLE_DEG) {
     if (++flipSamples >= IMU_FLIP_SAMPLES)
       imuEmit(IMU_FLIPPED, magG, cfPitch, cfRoll);
+    tapPending = false;                    // jerk at flip-start is not a tap
+    tapLockoutEnd = now + 500;
     goto check_level;  // suppress TAPPED/PICKUP while inverted
   } else {
     flipSamples = 0;
   }
 
+  // ── TAPPED (jerk detection — runs BEFORE pickup so tap jolt isn't eaten) ──
+  // Deferred confirmation: jerk spike → tapPending; next poll checks residual.
+  // Running jerk check first prevents the pickup block from setting tapLockoutEnd
+  // on the same poll as the jerk spike (which previously blocked tap for 1.5s).
+  if (tapPending) {
+    tapPending = false;
+    dlog("IMU: tap confirm residual=%.2f flipRate=%.0f needsLevel=%d",
+         pickupResidual, flipRate, (int)tapNeedsLevel);
+    bool tiltOk = (fabsf(cfPitch) < 25.0f && fabsf(cfRoll) < 25.0f);
+    if (!tapNeedsLevel && tiltOk && fabsf(pickupResidual) < 1.0f && flipRate < IMU_TAP_RATE_MAX) {
+      imuEmit(IMU_TAPPED, tapPendingMagG, tapPendingP, tapPendingR);
+      goto check_level;
+    }
+    if (tapNeedsLevel)
+      dlog("IMU: tap rejected (waiting for LEVEL after pickup)");
+    else if (!tiltOk)
+      dlog("IMU: tap rejected (tilt p=%.1f r=%.1f)", cfPitch, cfRoll);
+    else
+      dlog("IMU: tap rejected (|residual|=%.2f flipRate=%.0f)", fabsf(pickupResidual), flipRate);
+  }
+  if (jerk > IMU_TAP_JERK && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
+    dlog("IMU: jerk=%.1f (thresh=%.0f) → tap pending", jerk, (float)IMU_TAP_JERK);
+    tapLockoutEnd  = now + IMU_TAP_LOCKOUT_MS;
+    tapPending     = true;
+    tapPendingMagG = magG;
+    tapPendingP    = cfPitch;
+    tapPendingR    = cfRoll;
+    goto check_level;  // skip pickup check on the same poll as jerk spike
+  }
   // ── PICKUP ───────────────────────────────────────────────────────────────
   if (pickupResidual > IMU_PICKUP_RESIDUAL) {
     if (pickupStart == 0) pickupStart = now;
     if (now - pickupStart >= IMU_PICKUP_MS) {
       pickupEma = mag;
       imuEmit(IMU_PICKUP, magG, cfPitch, cfRoll);
+      tapNeedsLevel = true;  // require LEVEL before next tap (blocks set-down jolt)
+      tapLockoutEnd = now + 1500;
     }
     goto check_level;
   } else {
     pickupStart = 0;
   }
 
-  // ── TAPPED ───────────────────────────────────────────────────────────────
-  if (jerk > IMU_TAP_JERK && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
-    tapLockoutEnd = now + IMU_TAP_LOCKOUT_MS;
-    imuEmit(IMU_TAPPED, magG, cfPitch, cfRoll);
-    goto check_level;
-  }
-
 check_level:
   if (lastEvent != IMU_NONE && lastEvent != IMU_LEVEL) {
     if (tiltAngle < IMU_LEVEL_ANGLE_DEG) {
       if (imuLevelStart == 0) imuLevelStart = now;
-      if (now - imuLevelStart >= IMU_LEVEL_SUSTAIN_MS)
+      if (now - imuLevelStart >= IMU_LEVEL_SUSTAIN_MS) {
         imuEmit(IMU_LEVEL, magG, cfPitch, cfRoll);
+        tapNeedsLevel = false;  // robot is settled — tap allowed again
+      }
     } else {
       imuLevelStart = 0;
     }

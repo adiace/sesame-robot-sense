@@ -22,8 +22,10 @@
 
 // ---------------------------------------------------------------------------
 // I2C bus (shared: PCA9685 + OLED + IMU)
+// D4/GPIO5 is physically shared with I2S LRC on the AI Pin PCB — SDA moved
+// to D9/GPIO8 to avoid the conflict. Move the physical SDA wire to D9.
 // ---------------------------------------------------------------------------
-#define I2C_SDA            5      // D4 / GPIO5
+#define I2C_SDA            8      // D9 / GPIO8
 #define I2C_SCL            6      // D5 / GPIO6
 
 // ---------------------------------------------------------------------------
@@ -35,10 +37,13 @@
 
 // ---------------------------------------------------------------------------
 // I2S -> MAX98357A audio amp (LOCKED on the AI Pin PCB — do not reuse)
+// PCB traces confirmed from wiring diagram: LRC=D4, BCLK=D6, DIN=D8
+// D4=GPIO5 is also I2C SDA — audioSetup() install/uninstall I2S around
+// playback so GPIO5 returns to Wire control when audio is idle.
 // ---------------------------------------------------------------------------
-#define I2S_BCLK_PIN       7      // D8  / GPIO7
-#define I2S_LRCLK_PIN      8      // D9  / GPIO8
-#define I2S_DIN_PIN        9      // D10 / GPIO9
+#define I2S_BCLK_PIN       43     // D6  / GPIO43
+#define I2S_LRCLK_PIN      5      // D4  / GPIO5  (shared with I2C SDA)
+#define I2S_DIN_PIN        7      // D8  / GPIO7
 
 // ---------------------------------------------------------------------------
 // Remaining XIAO ESP32-S3 GPIO
@@ -91,3 +96,4 @@ static const uint8_t servoChannel[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 // ---------------------------------------------------------------------------
 // Matches robot_link.py: clients reach the robot at quadruped.local:8888.
 #define TCP_CMD_PORT       8888
+#define TCP_LOG_PORT       8890   // WiFi serial monitor: nc quadruped.local 8890

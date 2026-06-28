@@ -1,1 +1,9 @@
 .vscode/launch.json
+.DS_Store
+**/.DS_Store
+__pycache__/
+software/__pycache__/
+*.pyc
+.venv/
+.env
+*.pdf

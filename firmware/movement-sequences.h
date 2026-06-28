@@ -66,6 +66,8 @@ void runWalkPose();
 void runWalkBackward();
 void runTurnLeft();
 void runTurnRight();
+void runWiggle();
+void runWiggleSmall();
 
 // ====== POSES ======
 inline void runRestPose() { 
@@ -424,6 +426,34 @@ inline void runTurnRight() {
     if (!pressingCheck("right", frameDelay)) return;
     setServoAngle(R1, 135); setServoAngle(L2, 135);
     if (!pressingCheck("right", frameDelay)) return;
+  }
+  runStandPose(1);
+}
+
+// Rock hips side to side — used for PICKUP (3 reps) and TAPPED (2 reps).
+// Angles mirror runSwimPose: stand=(R1=135,R2=45,L1=45,L2=135), neutral=90.
+inline void runWiggle() {
+  runStandPose(0);
+  for (int i = 0; i < 3; i++) {
+    setServoAngle(R1, 90); setServoAngle(R2, 90);
+    setServoAngle(L1, 90); setServoAngle(L2, 90);
+    delayWithFace(150);
+    setServoAngle(R1, 135); setServoAngle(R2, 45);
+    setServoAngle(L1, 45);  setServoAngle(L2, 135);
+    delayWithFace(150);
+  }
+  runStandPose(1);
+}
+
+inline void runWiggleSmall() {
+  runStandPose(0);
+  for (int i = 0; i < 2; i++) {
+    setServoAngle(R1, 108); setServoAngle(R2, 72);
+    setServoAngle(L1, 72);  setServoAngle(L2, 108);
+    delayWithFace(100);
+    setServoAngle(R1, 135); setServoAngle(R2, 45);
+    setServoAngle(L1, 45);  setServoAngle(L2, 135);
+    delayWithFace(100);
   }
   runStandPose(1);
 }

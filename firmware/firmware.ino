@@ -11,6 +11,11 @@
 #include "movement-sequences.h"
 #include "captive-portal.h"
 #include "imu_handler.h"
+#include "audio_handler.h"
+#include "mic_handler.h"
+#include "voice_handler.h"
+#include "voice_config.h"
+#include "wifi_log.h"
 
 // --- Access Point Configuration ---
 // This is the network the Robot will create
@@ -49,6 +54,11 @@ WebServer server(80);
 WiFiServer tcpServer(TCP_CMD_PORT);
 WiFiClient tcpClient;
 
+// WiFi serial log server — streams debug output from Core 1 to any TCP client.
+// Connect with: nc quadruped.local 8890  (or software/serial_monitor.py)
+WiFiServer logServer(TCP_LOG_PORT);
+WiFiClient logClient;
+
 // Global state for animations
 String currentCommand = "";
 String currentFaceName = "default";
@@ -65,6 +75,11 @@ bool idleActive = false;
 bool idleBlinkActive = false;
 unsigned long nextIdleBlinkMs = 0;
 uint8_t idleBlinkRepeatsLeft = 0;
+
+// Speaking animation: while audio plays, alternate base face ↔ talk_<base> at ~5 fps.
+static String        _speakingBaseFace = "";
+static bool          _speakingToggle   = false;
+static unsigned long _speakingLastMs   = 0;
 
 // WiFi Info Scrolling
 unsigned long lastInputTime = 0;
@@ -159,6 +174,7 @@ static const uint8_t  IMU_QUEUE_LEN = 4;
 static const uint8_t  IMU_JSON_MAX  = 128;
 QueueHandle_t cmdQueue      = nullptr;
 QueueHandle_t imuEventQueue = nullptr;
+QueueHandle_t logQueue      = nullptr;   // Core 1 → Core 0 log forwarding (wifi_log.h)
 volatile bool    gStopRequested = false;
 volatile int     gServoAngle[8] = {90, 90, 90, 90, 90, 90, 90, 90};
 TaskHandle_t     networkTaskHandle = nullptr;
@@ -271,6 +287,7 @@ void enqueueCommandLine(const char* line);
 void drainCommandQueue();
 void applyCommandLine(const char* line);
 void setCurrentCommand(const String& cmd);
+void handleImuReaction(ImuEvent ev);
 
 // Published snapshots: written only on Core 1, read by Core 0 for status
 // replies. char[] (not String) so a cross-core read can't corrupt the heap.
@@ -441,14 +458,15 @@ void handleApiCommand() {
 void setup() {
   Serial.begin(115200);
   randomSeed(micros());
-  
-  // I2C Init — explicit pins required; Wire.begin() with no args no longer maps to
-  // GPIO5/6 on current Seeed XIAO ESP32-S3 board package (confirmed via scan sketch)
-  // No Wire.setClock() — default 100kHz is more stable; test sketch at 100kHz found IMU fine
-  delay(500);    // MPU-6050 power-on: I2C interface not ready until 100ms after Vcc stable
+
+  // I2C — explicit pins required (Wire.begin() default no longer maps to GPIO5/6
+  // on current Seeed XIAO ESP32-S3 board package). 100kHz for stable MPU-6050 comms.
+  delay(500);    // MPU-6050 needs ~100ms after Vcc stable; 500ms gives margin
   Wire.begin(I2C_SDA, I2C_SCL);
   delay(50);
-  imuSetup();    // before OLED: SSD1306 library can corrupt Wire state even with fixes above
+  imuSetup();
+  audioSetup();
+  micSetup();
 
   // OLED Init
   // periphBegin=false: we own Wire.begin(), SSD1306 must not re-init it
@@ -556,6 +574,8 @@ void setup() {
   // TCP command server (Albert line-protocol) + mDNS service advert.
   tcpServer.begin();
   tcpServer.setNoDelay(true);
+  logServer.begin();
+  logServer.setNoDelay(true);
   MDNS.addService("robot", "tcp", TCP_CMD_PORT);
   Serial.print(F("TCP command server on port "));
   Serial.println(TCP_CMD_PORT);
@@ -564,6 +584,7 @@ void setup() {
   // loop() keeps running on Core 1 and owns all servo/OLED/IMU/I2C work.
   cmdQueue      = xQueueCreate(CMD_QUEUE_LEN, CMD_LINE_MAX);
   imuEventQueue = xQueueCreate(IMU_QUEUE_LEN, IMU_JSON_MAX);
+  logQueue      = xQueueCreate(LOG_QUEUE_LEN, LOG_MSG_MAX);
   xTaskCreatePinnedToCore(networkTask, "networkTask", 8192, nullptr, 1,
                           &networkTaskHandle, 0);
 
@@ -577,7 +598,20 @@ void loop() {
   // Core 1: motion + face + serial only. DNS / HTTP / TCP are serviced by
   // networkTask on Core 0. Incoming network commands arrive via cmdQueue.
   drainCommandQueue();
+
+  // Detect when audio finishes and suppress tap briefly — speaker resonance
+  // after playback ends creates jerk spikes that look like real taps.
+  // Must snapshot state BEFORE audioPump() so we catch the exact tick it stops.
+  static bool _prevAudioPlaying = false;
+  bool _wasPlaying = isAudioPlaying();
+  audioPump();
+  bool _isPlaying = isAudioPlaying();
+  if (_wasPlaying && !_isPlaying) imuSuppressTap(800);
+  _prevAudioPlaying = _isPlaying;
+
   imuPoll();
+  handleImuReaction(imuConsumeReaction());
+
 
   // Safety reflex: a "stop" from any transport sets gStopRequested on Core 0.
   // Clear the running pose here; pressingCheck() also polls it mid-pose.
@@ -588,6 +622,7 @@ void loop() {
 
   updateAnimatedFace();
   updateIdleBlink();
+  updateSpeakingFace();
   updateWifiInfoScroll();
 
   // Keep the network-readable command snapshot in sync (single writer = Core 1).
@@ -760,6 +795,7 @@ void delayWithFace(unsigned long ms) {
   unsigned long start = millis();
   while (millis() - start < ms) {
     updateAnimatedFace();
+    audioPump();
     drainCommandQueue();
     delay(5);
   }
@@ -782,6 +818,28 @@ void enterIdle() {
 void exitIdle() {
   idleActive = false;
   idleBlinkActive = false;
+}
+
+void startSpeakingFace(const String& baseFace) {
+  _speakingBaseFace = baseFace;
+  _speakingToggle   = false;
+  _speakingLastMs   = millis();
+  setFace(baseFace);
+}
+
+void updateSpeakingFace() {
+  if (!isAudioPlaying()) {
+    if (!_speakingBaseFace.isEmpty()) {
+      setFace(_speakingBaseFace);   // restore base face when audio ends
+      _speakingBaseFace = "";
+    }
+    return;
+  }
+  if (_speakingBaseFace.isEmpty()) return;
+  if (millis() - _speakingLastMs < 180) return;   // ~5-6 fps mouth flap
+  _speakingLastMs = millis();
+  _speakingToggle = !_speakingToggle;
+  setFace(_speakingToggle ? ("talk_" + _speakingBaseFace) : _speakingBaseFace);
 }
 
 void updateIdleBlink() {
@@ -914,6 +972,79 @@ void updateWifiInfoScroll() {
 }
 
 // ===========================================================================
+// IMU reaction handler — Core 1 only, called from loop() after imuPoll().
+// Drives face and movement directly; no queue needed (same core).
+// ---------------------------------------------------------------------------
+void handleImuReaction(ImuEvent ev) {
+  switch (ev) {
+    case IMU_PICKUP:
+      if (isAudioPlaying()) { imuResetLevelTimer(); break; }  // don't cut voice response
+      currentFaceName = "";
+      setFace("scared");      // show scared face immediately alongside the sound
+      playWavFromSPIFFS("/woah_flying.wav");
+      imuResetLevelTimer();
+      runWiggle();
+      exitIdle();
+      imuResetLevelTimer();
+      break;
+    case IMU_FLIPPED:
+      if (isAudioPlaying()) break;  // don't cut voice response
+      playWavFromSPIFFS("/upside_down.wav");
+      setFace("dizzy");
+      exitIdle();
+      break;
+    case IMU_TAPPED:
+      // Ignore taps while audio is playing — speaker vibration creates jerk
+      // spikes that auto-retrigger and cut the response mid-play.
+      if (isAudioPlaying()) break;
+      dlogs("Voice: tap received");
+      stopAudio();
+      currentCommand = "";
+      setFace("excited");
+      audioActivationChirp();
+      dlogs("Voice: starting mic");
+      {
+        size_t bytes = micRecordWithVAD();
+        dlog("Voice: captured %zu bytes (%.1fs)", bytes, bytes / 32000.0f);
+        if (bytes > 0) {
+          audioGotItChirp();           // immediate "got it" feedback before slow server call
+          setFace("love");             // "thinking" face while waiting for server
+          dlog("Voice: sending %zu bytes to server", bytes);
+          if (voiceRequest(micBuffer(), bytes)) {
+            dlogs("Voice: playing response");
+            startSpeakingFace("excited");
+            playWavFromSPIFFS(VOICE_RESPONSE_PATH);
+          } else {
+            dlogs("Voice: server error");
+          }
+        } else {
+          dlogs("Voice: no speech detected");
+        }
+      }
+      // Suppress tap for 2s after pipeline — prevents speaker acoustic feedback
+      // or residual vibration from immediately re-triggering.
+      imuSuppressTap(2000);
+      enterIdle();
+      break;
+    case IMU_FREEFALL:
+      if (isAudioPlaying()) break;
+      playWavFromSPIFFS("/falling.wav");
+      setFace("scared");
+      exitIdle();
+      break;
+    case IMU_LEVEL:
+      // Don't stopAudio() here — would cut voice responses mid-play.
+      // Suppress tap for 2s: the set-down jolt creates a jerk spike that
+      // would immediately re-trigger voice recording.
+      imuSuppressTap(2000);
+      currentCommand = "";
+      enterIdle();
+      break;
+    default:
+      break;
+  }
+}
+
 // Cross-core command pipeline
 // ===========================================================================
 // enqueueCommandLine : called on EITHER core; hands a command line to Core 1.
@@ -1205,6 +1336,23 @@ void serviceTcpClient() {
       tcpClient.println(F("quadruped connected — type 'help'"));
     }
   }
+  // Accept log monitor client and drain queue — independent of command client.
+  if (!logClient || !logClient.connected()) {
+    WiFiClient incoming = logServer.available();
+    if (incoming) {
+      logClient = incoming;
+      logClient.printf("=== sesame log  uptime=%lus  sta=%s ===\r\n",
+                       millis() / 1000,
+                       WiFi.localIP().toString().c_str());
+    }
+  }
+  if (logClient && logClient.connected() && logQueue) {
+    static char logMsg[LOG_MSG_MAX];
+    while (xQueueReceive(logQueue, logMsg, 0) == pdTRUE) {
+      logClient.println(logMsg);
+    }
+  }
+
   if (!tcpClient || !tcpClient.connected()) return;
 
   // Drain IMU events queued by Core 1 (imuEmit) and push over TCP
