@@ -665,7 +665,7 @@ void loop() {
 
 // drainSerial() is called from loop() and from pressingCheck() so that
 // serial "stop" works mid-movement without waiting for the pose to finish.
-static void drainSerial() {
+void drainSerial() {
   static char    serialBuf[CMD_LINE_MAX];
   static uint8_t serialLen = 0;
   while (Serial.available()) {
