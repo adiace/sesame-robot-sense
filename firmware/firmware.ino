@@ -113,7 +113,7 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 // servoSubtrim: per-servo offset so setServoAngle(i, 90) lands at mechanical center.
 // Calibrated during physical bring-up — see motor_tester/README.md.
 // Fine-tune per-servo after physical bring-up with the 'trim' CLI command, then 'dump' to bake in.
-int8_t servoSubtrim[8] = {0, 0, 0, 0, 0, 0, 0, 0};  // R1 R2 L1 L2 R4 R3 L3 L4
+int8_t servoSubtrim[8] = {-7, 5, 11, -2, -7, 2, 2, 3};  // R1 R2 L1 L2 R4 R3 L3 L4
 int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
 bool   servoRev[8]     = {false, false, false, false,
                            false, false, false, false};
