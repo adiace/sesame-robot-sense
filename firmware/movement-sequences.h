@@ -148,7 +148,7 @@ inline void runPointPose() {
   Serial.println(F("POINT")); 
   setFaceWithMode("point", FACE_ANIM_BOOMERANG); 
   setServoAngle(L2, 90); setServoAngle(R1, 135); 
-  setServoAngle(R2, 100); setServoAngle(L4, 180); 
+  setServoAngle(R2,  80); setServoAngle(L4, 180); 
   setServoAngle(L1, 25); setServoAngle(L3, 145);
   setServoAngle(R4, 80); setServoAngle(R3, 170); 
   delayWithFace(2000); 
@@ -330,7 +330,7 @@ inline void runWalkPose() {
   setFaceWithMode("walk", FACE_ANIM_ONCE);
   // Initial Step
   setServoAngle(R3, 135); setServoAngle(L3, 45);
-  setServoAngle(R2, 100); setServoAngle(L1, 25);
+  setServoAngle(R2,  80); setServoAngle(L1, 25);
   if (!pressingCheck("forward", frameDelay)) return;
 
   for (int i = 0; i < walkCycles; i++) {
