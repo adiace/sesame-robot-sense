@@ -109,10 +109,13 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 //              needs to be flipped. Set these during bring-up with 'rev <id>'
 //              without recompiling. Persisted alongside trims.
 // Both arrays are written/read on Core 1 only; no cross-core locking needed.
-int8_t servoSubtrim[8] = {0, 0, 0, 0, 0, 0, 0, 0};  // compile-time base trim
-int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};  // NVS-backed runtime trim
-bool   servoRev[8]     = {false, false, false, false, // runtime direction flip
-                           false, false, false, false};
+// Calibrated during physical bring-up with motor_tester.ino.
+// servoSubtrim: offset from 90° to mechanical center for each servo.
+// servoRev: true for mirror-mounted servos where increasing angle moves opposite direction.
+int8_t servoSubtrim[8] = {-5, 2, 8, -4, -5, 2, 0, 4};  // R1 R2 L1 L2 R4 R3 L3 L4
+int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
+bool   servoRev[8]     = {false, true, true, false,       // R1 R2 L1 L2
+                           false, true, false, true};      // R4 R3 L3 L4
 
 // ---------------------------------------------------------------------------
 // NVS calibration persistence (Core 1 only, called from applyCommandLine)
@@ -566,8 +569,7 @@ void setup() {
 
   // Servo driver init — PCA9685 over the shared I2C bus (Wire already begun).
   pwm.begin();
-  pwm.setOscillatorFrequency(PCA9685_OSC_HZ);
-  pwm.setPWMFreq(SERVO_PWM_FREQ_HZ);
+  pwm.setPWMFreq(SERVO_PWM_FREQ_HZ); // 50Hz, uses default 25MHz PCA9685 oscillator
   delay(10);
   calLoad();   // restore runtime trims + reversal flags from NVS
 

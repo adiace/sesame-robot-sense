@@ -69,12 +69,11 @@
 // movement-sequences.h reproduces the identical physical position with no
 // re-calibration. Tune per-servo during bring-up if a horn binds.
 #define SERVO_PWM_FREQ_HZ  50
-#define SERVOMIN           150    // tick count at logical 0 deg
-#define SERVOMAX           600    // tick count at logical 180 deg
-
-// PCA9685 on-board oscillator nominal frequency, used by
-// pwm.setOscillatorFrequency() so setPWMFreq(50) lands accurately.
-#define PCA9685_OSC_HZ     27000000UL
+#define SERVOMIN           102    // ~500µs  → logical 0°  (MG90S safe minimum)
+#define SERVOMAX           491    // ~2400µs → logical 180° (MG90S safe maximum)
+// Matches myservo.attach(pin, 500, 2400) at 50Hz with 25MHz PCA9685 oscillator.
+// Original Sesame used SERVOMIN=150/SERVOMAX=600 (732-2929µs) which exceeds
+// MG90S physical limits and causes stall/gear damage.
 
 // ---------------------------------------------------------------------------
 // Servo channel map (Sesame nomenclature preserved)
