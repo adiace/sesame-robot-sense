@@ -112,10 +112,8 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 // Both arrays are written/read on Core 1 only; no cross-core locking needed.
 // servoSubtrim: per-servo offset so setServoAngle(i, 90) lands at mechanical center.
 // Calibrated during physical bring-up — see motor_tester/README.md.
-// Subtrim converts from 732-2929µs range to our horn positions (centered at ~1400µs).
-// Each value = round((hornPulse - 732) / 2197 * 180) - 90, where hornPulse was
-// measured in the motor tester (500-2400µs range).
-int8_t servoSubtrim[8] = {-35, -29, -24, -35, -35, -29, -31, -28};  // R1 R2 L1 L2 R4 R3 L3 L4
+// Fine-tune per-servo after physical bring-up with the 'trim' CLI command, then 'dump' to bake in.
+int8_t servoSubtrim[8] = {0, 0, 0, 0, 0, 0, 0, 0};  // R1 R2 L1 L2 R4 R3 L3 L4
 int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
 // servoRev: false for all — mirror-mounted servos are handled by using mirrored angles
 // in movement-sequences.h (e.g. R1=125 while L1=47 both produce "forward" hip position).
