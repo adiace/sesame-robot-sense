@@ -109,13 +109,14 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 //              needs to be flipped. Set these during bring-up with 'rev <id>'
 //              without recompiling. Persisted alongside trims.
 // Both arrays are written/read on Core 1 only; no cross-core locking needed.
-// Calibrated during physical bring-up with motor_tester.ino.
-// servoSubtrim: offset from 90° to mechanical center for each servo.
-// servoRev: true for mirror-mounted servos where increasing angle moves opposite direction.
+// servoSubtrim: per-servo offset so setServoAngle(i, 90) lands at mechanical center.
+// Calibrated during physical bring-up — see motor_tester/README.md.
 int8_t servoSubtrim[8] = {-5, 2, 8, -4, -5, 2, 0, 4};  // R1 R2 L1 L2 R4 R3 L3 L4
 int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
-bool   servoRev[8]     = {false, true, true, false,       // R1 R2 L1 L2
-                           false, true, false, true};      // R4 R3 L3 L4
+// servoRev: false for all — mirror-mounted servos are handled by using mirrored angles
+// in movement-sequences.h (e.g. R1=125 while L1=47 both produce "forward" hip position).
+bool   servoRev[8]     = {false, false, false, false,
+                           false, false, false, false};
 
 // ---------------------------------------------------------------------------
 // NVS calibration persistence (Core 1 only, called from applyCommandLine)

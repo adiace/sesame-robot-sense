@@ -76,17 +76,20 @@ inline void runRestPose() {
   for (int i = 0; i < 8; i++) setServoAngle(i, 90); 
 }
 
-inline void runStandPose(int face) { 
-  Serial.println(F("STAND")); 
-  if (face == 1) setFaceWithMode("stand", FACE_ANIM_ONCE); 
-  setServoAngle(R1, 135); 
-  setServoAngle(R2, 45); 
-  setServoAngle(L1, 45); 
-  setServoAngle(L2, 135); 
-  setServoAngle(R4, 0); 
-  setServoAngle(R3, 180); 
-  setServoAngle(L3, 0); 
-  setServoAngle(L4, 180); 
+inline void runStandPose(int face) {
+  Serial.println(F("STAND"));
+  if (face == 1) setFaceWithMode("stand", FACE_ANIM_ONCE);
+  // Angles for 500-2400µs pulse range + servoSubtrim.
+  // logical = tester_raw - subtrim; tester stand: R1=120 R2=55 L1=55 L2=120
+  //                                                R4=45  R3=135 L3=45 L4=135
+  setServoAngle(R1, 125);
+  setServoAngle(R2,  53);
+  setServoAngle(L1,  47);
+  setServoAngle(L2, 124);
+  setServoAngle(R4,  50);
+  setServoAngle(R3, 133);
+  setServoAngle(L3,  45);
+  setServoAngle(L4, 131);
   if (face == 1) enterIdle();
 }
 

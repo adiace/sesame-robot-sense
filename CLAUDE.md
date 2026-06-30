@@ -74,10 +74,12 @@ All commands — TCP, HTTP, serial — eventually call `applyCommandLine(const c
 applyCommandLine() → setServoAngle(channel, angle)
   trimmed  = constrain(angle + servoTrim[ch] + servoSubtrim[ch], 0, 180)
   physical = servoRev[ch] ? 180 - trimmed : trimmed
-  ticks    = map(physical, 0, 180, SERVOMIN=150, SERVOMAX=600)
+  ticks    = map(physical, 0, 180, SERVOMIN=102, SERVOMAX=491)
   pwm.setPWM(servoChannel[ch], 0, ticks)
 ```
-`SERVOMIN=150 / SERVOMAX=600` at 50 Hz = 732–2929 µs — matches original Sesame so movement-sequences.h angles need no changes.
+`SERVOMIN=102 / SERVOMAX=491` at 50 Hz / 25 MHz = 500–2400 µs (MG90S safe range).
+Original Sesame used 150/600 (732–2929 µs) which exceeded MG90S physical limits and caused stall/gear damage.
+Movement-sequences.h stand pose angles updated during bring-up; gait/trick angles need physical re-tuning.
 
 ## File responsibilities
 
@@ -112,7 +114,7 @@ applyCommandLine() → setServoAngle(channel, angle)
 | 6 | L3 | Left front knee |
 | 7 | L4 | Left rear knee |
 
-Left-side servos (L1/L2/L3/L4, channels 2/3/6/7) are mirror-mounted — expect `servoRev[]` to be `true` for those after calibration.
+Left-side servos (L1/L2/L3/L4, channels 2/3/6/7) are mirror-mounted. Mirror mounting is handled by using mirrored angles in movement-sequences.h (not servoRev flags). servoRev is false for all servos; servoSubtrim holds the per-servo mechanical center offsets.
 
 ## I2C pins
 
