@@ -115,12 +115,8 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 // Fine-tune per-servo after physical bring-up with the 'trim' CLI command, then 'dump' to bake in.
 int8_t servoSubtrim[8] = {0, 0, 0, 0, 0, 0, 0, 0};  // R1 R2 L1 L2 R4 R3 L3 L4
 int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
-// R2 (right rear hip) and L1 (left front hip) are physically mounted in the opposite
-// rotational direction from what the original Sesame gait expects. servoRev flips them
-// so e.g. setServoAngle(R2, 45) → physical 135° (outward, not inward into body).
-bool   servoRev[8]     = {false, true,  true,  false,
+bool   servoRev[8]     = {false, false, false, false,
                            false, false, false, false};
-//                          R1     R2     L1     L2     R4    R3    L3    L4
 
 // ---------------------------------------------------------------------------
 // NVS calibration persistence (Core 1 only, called from applyCommandLine)
