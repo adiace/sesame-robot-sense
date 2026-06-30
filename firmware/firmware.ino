@@ -888,7 +888,10 @@ void setServoAngle(uint8_t channel, int angle) {
   int trimmed = constrain(angle + servoTrim[channel] + servoSubtrim[channel], 0, 180);
   int physical = servoRev[channel] ? 180 - trimmed : trimmed;
   uint16_t ticks = map(physical, 0, 180, SERVOMIN, SERVOMAX);
-  pwm.setPWM(servoChannel[channel], 0, ticks);
+  // Stagger each channel's PWM phase by 512 ticks (4096/8) so no two servos
+  // pull peak current at the same instant — eliminates rail-sag jerk.
+  uint16_t phaseOn = servoChannel[channel] * 512;
+  pwm.setPWM(servoChannel[channel], phaseOn, phaseOn + ticks);
   gServoAngle[channel] = angle;   // snapshot for the network "pose" / nudge
   delayWithFace(motorCurrentDelay);
 }
