@@ -34,7 +34,7 @@
 #define IMU_FLIP_SAMPLES        5      // 5 × 20ms = 100ms
 
 // TAPPED: jerk spike; blocked when device is rotating (flip/flip-back)
-#define IMU_TAP_JERK           28.0f  // m/s²/s — finger tap threshold
+#define IMU_TAP_JERK           55.0f  // m/s²/s — finger tap threshold (raised from 28; table vibrations reach ~30-35)
 #define IMU_TAP_LOCKOUT_MS    150
 #define IMU_TAP_RATE_MAX      80.0f   // °/s — real taps: 1–52; handling: 83–652
 
@@ -315,7 +315,7 @@ void imuPoll() {
     dlog("IMU: tap confirm residual=%.2f flipRate=%.0f needsLevel=%d",
          pickupResidual, flipRate, (int)tapNeedsLevel);
     bool tiltOk = (fabsf(cfPitch) < 25.0f && fabsf(cfRoll) < 25.0f);
-    if (!tapNeedsLevel && tiltOk && fabsf(pickupResidual) < 1.0f && flipRate < IMU_TAP_RATE_MAX) {
+    if (!tapNeedsLevel && tiltOk && fabsf(pickupResidual) < 0.5f && flipRate < IMU_TAP_RATE_MAX) {
       imuEmit(IMU_TAPPED, tapPendingMagG, tapPendingP, tapPendingR);
       goto check_level;
     }

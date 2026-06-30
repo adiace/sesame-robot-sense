@@ -468,24 +468,26 @@ void setup() {
   // on current Seeed XIAO ESP32-S3 board package). 100kHz for stable MPU-6050 comms.
   delay(500);    // MPU-6050 needs ~100ms after Vcc stable; 500ms gives margin
   Wire.begin(I2C_SDA, I2C_SCL);
+  Wire.setClock(400000);
   delay(50);
   imuSetup();
-  audioSetup();
-  micSetup();
 
-  // OLED Init
+  // OLED Init — before audioSetup/micSetup so I2S init can't affect the I2C bus state
   // periphBegin=false: we own Wire.begin(), SSD1306 must not re-init it
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR, false, false)) {
-    Serial.println(F("SSD1306 allocation failed."));
+    Serial.println(F("SSD1306 allocation failed — check wiring at 0x3C."));
     while (1);
   }
-  
+  Serial.println(F("OLED: OK"));
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
   display.println(F("Setting up WiFi..."));
   display.display();
+
+  audioSetup();
+  micSetup();
 
   // --- WIFI CONFIGURATION ---
   // Try to connect to network first if configured
