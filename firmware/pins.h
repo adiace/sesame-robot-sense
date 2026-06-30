@@ -69,11 +69,12 @@
 // movement-sequences.h reproduces the identical physical position with no
 // re-calibration. Tune per-servo during bring-up if a horn binds.
 #define SERVO_PWM_FREQ_HZ  50
-#define SERVOMIN           102    // ~500µs  → logical 0°  (MG90S safe minimum)
-#define SERVOMAX           491    // ~2400µs → logical 180° (MG90S safe maximum)
-// Matches myservo.attach(pin, 500, 2400) at 50Hz with 25MHz PCA9685 oscillator.
-// Original Sesame used SERVOMIN=150/SERVOMAX=600 (732-2929µs) which exceeds
-// MG90S physical limits and causes stall/gear damage.
+#define SERVOMIN           150    // ~732µs  → logical 0°
+#define SERVOMAX           600    // ~2929µs → logical 180°
+// Matches the original Sesame ESP32Servo range (servos.attach(pin, 732, 2929))
+// so every angle in movement-sequences.h produces the designed physical position.
+// servoSubtrim[] compensates for our horn attachment positions (measured at 500-2400µs).
+// With subtrim ~= -35, logical 180° maps to ~2500µs — within MG90S physical range.
 
 // ---------------------------------------------------------------------------
 // Servo channel map (Sesame nomenclature preserved)

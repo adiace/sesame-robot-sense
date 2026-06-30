@@ -74,12 +74,13 @@ All commands — TCP, HTTP, serial — eventually call `applyCommandLine(const c
 applyCommandLine() → setServoAngle(channel, angle)
   trimmed  = constrain(angle + servoTrim[ch] + servoSubtrim[ch], 0, 180)
   physical = servoRev[ch] ? 180 - trimmed : trimmed
-  ticks    = map(physical, 0, 180, SERVOMIN=102, SERVOMAX=491)
+  ticks    = map(physical, 0, 180, SERVOMIN=150, SERVOMAX=600)
   pwm.setPWM(servoChannel[ch], 0, ticks)
 ```
-`SERVOMIN=102 / SERVOMAX=491` at 50 Hz / 25 MHz = 500–2400 µs (MG90S safe range).
-Original Sesame used 150/600 (732–2929 µs) which exceeded MG90S physical limits and caused stall/gear damage.
-Movement-sequences.h stand pose angles updated during bring-up; gait/trick angles need physical re-tuning.
+`SERVOMIN=150 / SERVOMAX=600` = 732–2929 µs — matches the original Sesame ESP32Servo range so all
+movement-sequences.h angles produce the designed physical positions without re-tuning.
+`servoSubtrim[]` (≈ −35 per servo) compensates for horn attachment position (measured at 500–2400 µs).
+With subtrim, logical 180° maps to ~2500 µs, within MG90S physical range.
 
 ## File responsibilities
 
