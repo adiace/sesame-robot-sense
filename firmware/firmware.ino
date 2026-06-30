@@ -188,7 +188,7 @@ TaskHandle_t     networkTaskHandle = nullptr;
 // Animation constants
 int frameDelay = 100;
 int walkCycles = 10;
-int motorCurrentDelay = 20; // ms delay between motor movements to prevent over-current
+int motorCurrentDelay = 0; // PWM phase stagger handles current peaks — no software delay needed
 
 struct FaceEntry {
   const char* name;
