@@ -340,11 +340,11 @@ inline void runWalkPose() {
     setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(L4, 135); setServoAngle(L2, 90);
-    setServoAngle(R4, 30); setServoAngle(R1, 180);  // R4 lift: 0→30 (0 hits mechanical stop)
+    setServoAngle(R4, 140); setServoAngle(R1, 180);  // R4 lift (high=up)
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(R2, 45); setServoAngle(L1, 90);
     if (!pressingCheck("forward", frameDelay)) return;
-    setServoAngle(R4, 140); setServoAngle(L4, 180);  // R4 plant raised 45→140 for full extension
+    setServoAngle(R4, 30); setServoAngle(L4, 180);   // R4 plant (low=down)
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(R3, 180); setServoAngle(L3, 45);
     setServoAngle(R2, 90); setServoAngle(L1, 0);
@@ -365,11 +365,11 @@ inline void runWalkBackward() {
     setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(L4, 135); setServoAngle(L2, 135);
-    setServoAngle(R4, 0); setServoAngle(R1, 90);
+    setServoAngle(R4, 140); setServoAngle(R1, 90);   // R4 lift (high=up)
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(R2, 90); setServoAngle(L1, 0);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(R4, 140); setServoAngle(L4, 180);  // R4 plant raised 45→140
+    setServoAngle(R4, 30); setServoAngle(L4, 180);   // R4 plant (low=down)
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(R3, 180); setServoAngle(L3, 45);
     setServoAngle(R2, 45); setServoAngle(L1, 90);
