@@ -27,9 +27,10 @@
 // is how the Python host tools (robot_link.py / robot.py / voice_control.py /
 // robot_gui.py) find it via mDNS. The Sesame AP below stays up at the same time
 // (WIFI_AP_STA), so the captive-portal web UI also keeps working.
-// >>> Set these to YOUR network before flashing. <<<
-#define NETWORK_SSID "your-wifi-ssid"    // Your WiFi network name
-#define NETWORK_PASS "your-wifi-password" // Your WiFi password
+// Credentials live in wifi_credentials.h (gitignored — never commit that file).
+#include "wifi_credentials.h"
+#define NETWORK_SSID WIFI_SSID
+#define NETWORK_PASS WIFI_PASS
 #define ENABLE_NETWORK_MODE true         // STA join enabled (needed for quadruped.local)
 
 #define SCREEN_WIDTH 128
