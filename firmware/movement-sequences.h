@@ -327,42 +327,26 @@ inline void runCrabPose() {
   if (currentCommand == "crab") currentCommand = "";
 }
 
-// Knee angle constants derived from motor_tester bring-up (500-2400µs pulse range).
-// R4/L3: higher angle = lift (up), lower = plant (down). Stand: R4=50, L3=45.
-// R3/L4: lower angle = lift (up), higher = plant (down). Stand: R3=133, L4=131.
-#define KNEE_R4_PLANT   50
-#define KNEE_R4_LIFT   110
-#define KNEE_R3_PLANT  133
-#define KNEE_R3_LIFT    75
-#define KNEE_L3_PLANT   45
-#define KNEE_L3_LIFT   110
-#define KNEE_L4_PLANT  131
-#define KNEE_L4_LIFT    75
-
 // --- MOVEMENT ANIMATIONS ---
 inline void runWalkPose() {
   Serial.println(F("WALK FWD"));
   setFaceWithMode("walk", FACE_ANIM_ONCE);
-  // Initial: all knees planted, hips at start position
-  setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L3, KNEE_L3_PLANT);
+  // Initial Step
+  setServoAngle(R3, 135); setServoAngle(L3, 45);
   setServoAngle(R2, 100); setServoAngle(L1, 25);
   if (!pressingCheck("forward", frameDelay)) return;
 
   for (int i = 0; i < walkCycles; i++) {
-    // Lift L3 (left front knee), keep R3 planted
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L3, KNEE_L3_LIFT);
+    setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("forward", frameDelay)) return;
-    // Keep L4 planted, lift R4 (right front knee); swing diagonal hips
-    setServoAngle(L4, KNEE_L4_PLANT); setServoAngle(L2, 90);
-    setServoAngle(R4, KNEE_R4_LIFT); setServoAngle(R1, 180);
+    setServoAngle(L4, 135); setServoAngle(L2, 90);
+    setServoAngle(R4, 0); setServoAngle(R1, 180);
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(R2, 45); setServoAngle(L1, 90);
     if (!pressingCheck("forward", frameDelay)) return;
-    // Plant R4, lift L4
-    setServoAngle(R4, KNEE_R4_PLANT); setServoAngle(L4, KNEE_L4_LIFT);
+    setServoAngle(R4, 140); setServoAngle(L4, 180);  // R4 plant raised 45→140 for full extension
     if (!pressingCheck("forward", frameDelay)) return;
-    // Plant L3, swing other diagonal hips
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L3, KNEE_L3_PLANT);
+    setServoAngle(R3, 180); setServoAngle(L3, 45);
     setServoAngle(R2, 90); setServoAngle(L1, 0);
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(L2, 135); setServoAngle(R1, 90);
@@ -378,16 +362,16 @@ inline void runWalkBackward() {
   if (!pressingCheck("backward", frameDelay)) return;
 
   for (int i = 0; i < walkCycles; i++) {
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L3, KNEE_L3_LIFT);
+    setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(L4, KNEE_L4_PLANT); setServoAngle(L2, 135);
-    setServoAngle(R4, KNEE_R4_LIFT); setServoAngle(R1, 90);
+    setServoAngle(L4, 135); setServoAngle(L2, 135);
+    setServoAngle(R4, 0); setServoAngle(R1, 90);
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(R2, 90); setServoAngle(L1, 0);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(R4, KNEE_R4_PLANT); setServoAngle(L4, KNEE_L4_LIFT);
+    setServoAngle(R4, 140); setServoAngle(L4, 180);  // R4 plant raised 45→140
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L3, KNEE_L3_PLANT);
+    setServoAngle(R3, 180); setServoAngle(L3, 45);
     setServoAngle(R2, 45); setServoAngle(L1, 90);
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(L2, 90); setServoAngle(R1, 180);
@@ -401,21 +385,21 @@ inline void runTurnLeft() {
   Serial.println(F("TURN LEFT"));
   setFaceWithMode("walk", FACE_ANIM_ONCE);
   for (int i = 0; i < walkCycles; i++) {
-    // Legset 1 (R1 L2): lift R3+L4, swing R1/L2
-    setServoAngle(R3, KNEE_R3_LIFT); setServoAngle(L4, KNEE_L4_PLANT);
+    //legset 1 (R1 L2)
+    setServoAngle(R3, 135); setServoAngle(L4, 135);
     if (!pressingCheck("left", frameDelay)) return;
     setServoAngle(R1, 180); setServoAngle(L2, 180);
     if (!pressingCheck("left", frameDelay)) return;
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L4, KNEE_L4_LIFT);
+    setServoAngle(R3, 180); setServoAngle(L4, 180);
     if (!pressingCheck("left", frameDelay)) return;
     setServoAngle(R1, 135); setServoAngle(L2, 135);
     if (!pressingCheck("left", frameDelay)) return;
-    // Legset 2 (R2 L1): lift R4+L3, swing R2/L1
-    setServoAngle(R4, KNEE_R4_PLANT); setServoAngle(L3, KNEE_L3_PLANT);
+      //legset 2 (R2 L1)
+    setServoAngle(R4, 140); setServoAngle(L3, 45);  // R4 plant raised 45→140
     if (!pressingCheck("left", frameDelay)) return;
     setServoAngle(R2, 90); setServoAngle(L1, 90);
     if (!pressingCheck("left", frameDelay)) return;
-    setServoAngle(R4, KNEE_R4_LIFT); setServoAngle(L3, KNEE_L3_LIFT);
+    setServoAngle(R4, 0); setServoAngle(L3, 0);
     if (!pressingCheck("left", frameDelay)) return;
     setServoAngle(R2, 45); setServoAngle(L1, 45);
     if (!pressingCheck("left", frameDelay)) return;
@@ -427,21 +411,21 @@ inline void runTurnRight() {
   Serial.println(F("TURN RIGHT"));
   setFaceWithMode("walk", FACE_ANIM_ONCE);
   for (int i = 0; i < walkCycles; i++) {
-    // Legset 2 (R2 L1)
-    setServoAngle(R4, KNEE_R4_PLANT); setServoAngle(L3, KNEE_L3_PLANT);
+    //legset 2 (R2 L1)
+    setServoAngle(R4, 140); setServoAngle(L3, 45);  // R4 plant raised 45→140
     if (!pressingCheck("right", frameDelay)) return;
     setServoAngle(R2, 0); setServoAngle(L1, 0);
     if (!pressingCheck("right", frameDelay)) return;
-    setServoAngle(R4, KNEE_R4_LIFT); setServoAngle(L3, KNEE_L3_LIFT);
+    setServoAngle(R4, 0); setServoAngle(L3, 0);
     if (!pressingCheck("right", frameDelay)) return;
     setServoAngle(R2, 45); setServoAngle(L1, 45);
     if (!pressingCheck("right", frameDelay)) return;
-    // Legset 1 (R1 L2)
-    setServoAngle(R3, KNEE_R3_LIFT); setServoAngle(L4, KNEE_L4_PLANT);
+    //legset 1 (R1 L2)
+    setServoAngle(R3, 135); setServoAngle(L4, 135);
     if (!pressingCheck("right", frameDelay)) return;
     setServoAngle(R1, 90); setServoAngle(L2, 90);
     if (!pressingCheck("right", frameDelay)) return;
-    setServoAngle(R3, KNEE_R3_PLANT); setServoAngle(L4, KNEE_L4_LIFT);
+    setServoAngle(R3, 180); setServoAngle(L4, 180);
     if (!pressingCheck("right", frameDelay)) return;
     setServoAngle(R1, 135); setServoAngle(L2, 135);
     if (!pressingCheck("right", frameDelay)) return;
