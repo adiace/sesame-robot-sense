@@ -340,7 +340,7 @@ inline void runWalkPose() {
     setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(L4, 135); setServoAngle(L2, 90);
-    setServoAngle(R4, 0); setServoAngle(R1, 180);
+    setServoAngle(R4, 30); setServoAngle(R1, 180);  // R4 lift: 0→30 (0 hits mechanical stop)
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(R2, 45); setServoAngle(L1, 90);
     if (!pressingCheck("forward", frameDelay)) return;
