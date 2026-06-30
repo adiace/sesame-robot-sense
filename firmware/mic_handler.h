@@ -17,8 +17,8 @@
 //   for the ESP32-S3 PDM DMA bug.
 
 #define MIC_SAMPLE_RATE 16000
-#define MIC_PDM_CLK     42
-#define MIC_PDM_DATA    41
+#define MIC_PDM_CLK     41
+#define MIC_PDM_DATA    42
 
 #define MIC_MAX_BYTES      (MIC_SAMPLE_RATE * 2 * 10)   // 320 KB — needs PSRAM
 #define MIC_FALLBACK_BYTES (MIC_SAMPLE_RATE * 2 * 3)    //  96 KB — internal RAM
