@@ -290,6 +290,7 @@ void serviceTcpClient();
 void routeTcpLine(const char* rawLine);
 void enqueueCommandLine(const char* line);
 void drainCommandQueue();
+void drainSerial();
 void applyCommandLine(const char* line);
 void setCurrentCommand(const String& cmd);
 void handleImuReaction(ImuEvent ev);
@@ -659,11 +660,15 @@ void loop() {
   }
   
   // Serial CLI — same vocabulary as TCP (applyCommandLine handles both).
-  // '?' is an alias for 'help'. Legacy "rn xx" shortcuts are gone; use the
-  // full names (forward, wave, etc.) or the calibration commands below.
-  if (Serial.available()) {
-    static char serialBuf[CMD_LINE_MAX];
-    static uint8_t serialLen = 0;
+  drainSerial();
+}
+
+// drainSerial() is called from loop() and from pressingCheck() so that
+// serial "stop" works mid-movement without waiting for the pose to finish.
+static void drainSerial() {
+  static char    serialBuf[CMD_LINE_MAX];
+  static uint8_t serialLen = 0;
+  while (Serial.available()) {
     char c = Serial.read();
     if (c == '\n' || c == '\r') {
       if (serialLen > 0) {
@@ -897,6 +902,7 @@ bool pressingCheck(String cmd, int ms) {
   while (millis() - start < ms) {
     updateAnimatedFace();
     drainCommandQueue();
+    drainSerial();
     if (gStopRequested) {
       gStopRequested = false;
       currentCommand = "";
