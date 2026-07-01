@@ -22,6 +22,7 @@ One-shot poses — execute once then return to stand.
 |---|---|
 | `stand` | Stand pose |
 | `rest` | Rest / fold down |
+| `box` | Box stance — crouched, legs tucked under frame |
 | `wave` | Wave one leg |
 | `dance` | Dance sequence |
 | `swim` | Swimming motion |
@@ -48,13 +49,13 @@ These commands stop any running pose before moving servos.
 |---|---|
 | `neutral` | All 8 servos to 90° |
 | `all <0-180>` | All servos to one angle |
-| `servo <id> <0-180>` | One servo by index (0–7) |
-| `nudge <id> <delta>` | Relative move from current position, e.g. `nudge 2 5` |
+| `servo <id> <0-180>` | One servo by index or name, e.g. `servo R1 110` or `servo 0 110` |
+| `nudge <id> <delta>` | Relative move from current position, e.g. `nudge R1 -10` |
 | `hips <0-180>` | All four hip servos |
 | `knees <0-180>` | All four knee servos |
 | `stance <hip> <knee>` | Hips and knees in one command |
 
-`<id>` is the servo index 0–7:
+`<id>` accepts either a servo name or its index 0–7:
 
 | ID | Name | Joint |
 |---|---|---|
@@ -73,8 +74,8 @@ These commands stop any running pose before moving servos.
 
 | Command | Description |
 |---|---|
-| `trim <id> <-45..45>` | Apply a runtime angle offset to one servo; takes effect immediately |
-| `rev <id>` | Flip a servo's direction (toggle); takes effect immediately |
+| `trim <id> <-45..45>` | Apply a runtime angle offset to one servo (name or index); takes effect immediately |
+| `rev <id>` | Flip a servo's direction (name or index, toggle); takes effect immediately |
 | `rev` | List reversal state for all 8 servos |
 | `save` | Persist current `servoTrim[]` and `servoRev[]` to NVS flash |
 | `load` | Reload trims and reversal from NVS (also called on boot) |

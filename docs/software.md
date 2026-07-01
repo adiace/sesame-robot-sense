@@ -1,336 +1,151 @@
 # Software Guide
 
-Python host tools for controlling the robot from your Mac or Linux machine. All four tools live in the `software/` directory and share a single transport layer (`robot_link.py`). They connect over WiFi by default — the robot must be on the same network and reachable at `quadruped.local:8888`.
+All companion software has moved to a dedicated repository:
+
+**[sesame-companion-app-sense](https://github.com/adiace/sesame-companion-app-sense)**
+
+Clone it alongside this repo:
+
+```bash
+cd ~/Documents
+git clone https://github.com/adiace/sesame-companion-app-sense.git
+```
 
 ---
 
-## Installation
-
-### Python version
-
-Python 3.8 or newer. Check with:
+## Quick start
 
 ```bash
-python3 --version
+cd sesame-companion-app-sense
+./run.sh          # creates venv, installs deps, launches GUI on first run
 ```
 
-### Required packages
-
-```bash
-pip install pyserial vosk sounddevice
-```
-
-| Package | Used by | Purpose |
-|---|---|---|
-| `pyserial` | all tools | USB serial fallback transport |
-| `vosk` | `voice_control.py`, `robot_gui.py` | Offline speech recognition |
-| `sounddevice` | `voice_control.py`, `robot_gui.py` | Microphone input |
-
-`tkinter` is also required by `robot_gui.py`. It ships with Python on macOS. On Linux, install it separately:
-
-```bash
-sudo apt install python3-tk   # Debian/Ubuntu
-```
-
-### Vosk language model
-
-Voice recognition runs entirely offline using the Vosk small English model (~50 MB). You only need this if you plan to use voice control.
-
-1. Download the model from https://alphacephei.com/vosk/models — look for `vosk-model-small-en-us-*`
-2. Unzip it and rename the folder to `vosk-model`
-3. Place it inside the `software/` directory:
-
-```
-software/
-├── vosk-model/          ← here
-│   ├── am/
-│   ├── conf/
-│   └── ...
-├── voice_control.py
-└── ...
-```
-
-The tools expect the model at this exact path relative to their own location. Voice features will fail to start with a clear error if the folder is missing.
+On first run `run.sh` creates `.env` from the template. Set `SESAME_ROBOT_IP` to the robot's address (`quadruped.local` or an IP) and `LOCAL_LLM_MODEL` to your Ollama model (default: `llama3.2`).
 
 ---
 
-## Connecting to the robot
+## What's in the companion app
 
-All tools default to WiFi. They resolve the robot via mDNS at `quadruped.local:8888` and fall back to USB serial automatically if WiFi isn't available.
-
-**Prerequisites for WiFi:**
-- Robot is flashed and running (see [Setup & Calibration](calibration.md))
-- Robot and your computer are on the same WiFi network
-- `NETWORK_SSID` / `NETWORK_PASS` are set correctly in the firmware
-
-**USB serial fallback:**
-- Connect the robot via USB-C
-- The tool will find the port automatically on macOS (`/dev/cu.usbmodem*`)
-
-**Connection flags** (available on all tools):
-
-| Flag | Behaviour |
+| File | Purpose |
 |---|---|
-| *(none)* | Try `quadruped.local:8888`, fall back to USB serial |
-| `--net` | WiFi only, no serial fallback |
-| `--serial` | USB serial only, no WiFi attempt |
-| `--host <address>` | Use a specific hostname or IP instead of `quadruped.local` |
+| `sesame_companion.py` | Core library — LLM, STT, TTS, robot HTTP controller, robot voice receiver, IMU tracker |
+| `sesame_gui.py` | Tkinter GUI — chat, quick actions, settings |
+| `robot_link.py` | Low-level TCP + serial transport (debugging / scripted testing) |
+| `robot.py` | CLI bridge — send single commands or timed sequences |
+| `imu_receiver.py` | Print IMU events from the robot in real time |
+| `serial_monitor.py` | Stream the robot's debug log (TCP port 8890) to the terminal |
+| `moves.json` | Named action library with trigger phrases and step sequences |
+| `run.sh` | Launch script — venv setup + `sesame_gui.py` |
+| `.env.example` | Config template (copy to `.env`) |
 
 ---
 
-## `robot.py` — command-line bridge
+## Architecture
 
-Send a single command and print the reply, or run a timed sequence from stdin.
+The companion app is the sole software interface to the robot. It communicates
+with the firmware over two channels:
 
-### Single command
+| Channel | Direction | Purpose |
+|---|---|---|
+| TCP :8888 | laptop → robot | Commands and face changes (persistent, newline-framed) |
+| HTTP `GET /api/status` | laptop → robot | Poll current face and command |
+| TCP port 8889 | robot → laptop | Robot streams 4-second PCM clips after on-device wake word |
+| TCP port 8890 | robot → laptop | Robot pushes debug log lines (serial monitor, IMU events) |
+
+### Voice flow (on-device wake word)
+
+1. Robot detects "Hi ESP" via ESP-SR WakeNet (on-device, no streaming)
+2. Robot records 4 s of audio and sends it to the companion app on port 8889
+3. `RobotVoiceReceiver` transcribes with `faster_whisper` (local STT)
+4. Sends transcript to Ollama → gets `{command, face, response}`
+5. Generates TTS WAV with macOS `say` + `afconvert` (16 kHz mono 16-bit)
+6. Sends WAV back to robot on the same TCP connection → robot plays it directly from PSRAM on its speaker
+7. Sends `{command, face}` to robot via TCP :8888
+8. Conversation appears in the GUI chat log
+
+### Laptop voice mode (GUI)
+
+If **Voice Mode** is enabled in the GUI the laptop mic is also active. Speech is captured by `SpeechRecognition` and transcribed locally by `faster_whisper`. The LLM response is spoken by macOS `say` on the laptop speaker and the robot's face animates in sync.
+
+Both modes run simultaneously — they share the same `LocalLLMInterface` and `SesameRobotController`.
+
+---
+
+## `robot.py` — CLI bridge
+
+Send a single command or run a timed sequence. Connects over WiFi by default.
 
 ```bash
-cd software
+cd sesame-companion-app-sense
+source .venv/bin/activate
+
 python3 robot.py "stand"
 python3 robot.py "forward"
-python3 robot.py "servo 2 110"
-python3 robot.py "pose"
-```
+python3 robot.py --host 192.168.68.100 "pose"
 
-### Force a transport
-
-```bash
-python3 robot.py --serial "stand"              # USB serial only
-python3 robot.py --net "stand"                 # WiFi only
-python3 robot.py --host 192.168.1.42 "pose"   # connect by IP
-```
-
-### Timed sequence (`--seq`)
-
-Reads commands from stdin, one per line. A line is either a firmware command (sent verbatim) or `wait <seconds>` (pause). Blank lines and `# comments` are ignored.
-
-```bash
+# Timed sequence
 python3 robot.py --seq <<'EOF'
 stand
 wait 1
 forward
 wait 3
-left
-wait 2
 stop
 EOF
 ```
 
-Sequences let you script choreography without keeping a connection open between commands.
+---
+
+## `imu_receiver.py` — IMU event monitor
+
+Prints IMU events (pickup, flip, tap, freefall) as they arrive from the robot.
+
+```bash
+source .venv/bin/activate
+python3 imu_receiver.py
+python3 imu_receiver.py --host 192.168.68.100
+```
 
 ---
 
-## `robot_gui.py` — desktop control panel
+## `serial_monitor.py` — debug log stream
 
-A Tkinter window with movement buttons, a text command entry, a live robot monitor, and a side-view animation.
+Mirrors the robot's `wifi_log.h` debug output (same content as Arduino Serial Monitor, over WiFi).
 
 ```bash
-cd software
-python3 robot_gui.py
+source .venv/bin/activate
+python3 serial_monitor.py
+python3 serial_monitor.py 192.168.68.100   # explicit IP
 ```
-
-### Connecting
-
-Use the **Transport** dropdown and **Host** field at the top of the window, then click **Connect**. The robot sends `stand` automatically on a successful connection.
-
-| Transport option | Behaviour |
-|---|---|
-| Auto | Try WiFi, fall back to serial |
-| WiFi | WiFi only |
-| Serial | USB serial only |
-
-### Movement buttons
-
-**Movement** section: `Stand`, `Rest`, `Forward`, `Backward`, `Left`, `Right`
-
-**Moves** section: `Circle`, `Spin`, `Dance`, `Wave`, `Bow`, `Wiggle`, `Pushup`, `Wander`
-
-The large **■ STOP** button sends `stop` immediately and interrupts any running motion.
-
-### Raw command entry
-
-Type any firmware command in the text box and press **Enter** or **Send**. The command is sent directly to the robot. See the [Command Reference](commands.md) for the full vocabulary.
-
-### Robot monitor
-
-The right panel shows everything the robot sends back — command echoes, pose data, error messages, and calibration output. Useful for watching calibration feedback. Click **Clear** to wipe it.
-
-### Animation
-
-The centre panel shows a side-view animation that tracks the current action — walking, turning, waving, etc. It updates automatically when you send commands.
-
-### Voice input toggle
-
-Check **🎤 Voice input** to enable the microphone. The GUI reuses the same Vosk recognition engine as `voice_control.py`. Say any voice trigger phrase from `moves.json` to fire the corresponding action, or say "stop" to halt. Requires `vosk` and `sounddevice` installed and the Vosk model in place.
 
 ---
 
-## `voice_control.py` — always-on voice control
+## `moves.json` — named action library
 
-Keeps the robot link open and listens continuously for spoken commands. No cloud, no API key — everything runs locally via Vosk.
-
-```bash
-cd software
-python3 voice_control.py
-```
-
-### Flags
-
-```bash
-python3 voice_control.py                    # WiFi then serial, listen continuously
-python3 voice_control.py --serial           # force USB serial
-python3 voice_control.py --net              # force WiFi
-python3 voice_control.py --host 1.2.3.4    # connect by IP
-python3 voice_control.py --list             # list available mics and serial ports
-python3 voice_control.py --once "wave"      # fire one action by text, no mic
-```
-
-### Usage
-
-Once connected the tool prints the vocabulary and listens indefinitely. Say a trigger phrase from `moves.json` and the corresponding steps are sent to the robot.
-
-**Stop reflex:** saying "stop", "halt", or "freeze" interrupts instantly — even on a partial recognition result, even mid-routine. This is always active.
-
-Press **Ctrl-C** to quit. The tool sends `stop` to the robot before closing.
-
-### Choosing a microphone
-
-If recognition is poor or the wrong device is selected:
-
-```bash
-python3 voice_control.py --list
-```
-
-This prints all available audio input devices with their index numbers. To use a specific device, set the `sounddevice` default in your environment, or pass the device index by editing the `sd.RawInputStream` call in `voice_control.py`.
+Defines trigger phrases and step sequences for named actions. Used as a reference and can be integrated into custom scripts via `robot.py --seq`.
 
 ---
 
-## `moves.json` — action library
+## Ollama setup
 
-Defines every named action that `voice_control.py` and `robot_gui.py` recognise. Editing this file is how you add new moves — no code changes required.
+The companion app requires [Ollama](https://ollama.com) running locally:
 
-### Structure
-
-```json
-{
-  "actions": [
-    {
-      "name": "wave",
-      "triggers": ["wave", "say hi", "hello"],
-      "steps": [
-        { "cmd": "wave" }
-      ]
-    },
-    {
-      "name": "circle",
-      "triggers": ["circle", "walk in a circle"],
-      "steps": [
-        { "cmd": "left" },
-        { "wait": 7 },
-        { "cmd": "stop" }
-      ]
-    }
-  ]
-}
+```bash
+brew install ollama
+ollama serve         # runs in background
+ollama pull llama3.2
+# optional: ollama pull granite3.1-dense:8b
 ```
 
-Each action has:
-
-| Field | Type | Description |
-|---|---|---|
-| `name` | string | Unique identifier, shown in logs and the GUI |
-| `triggers` | array of strings | Any matching phrase fires this action; longest match wins |
-| `steps` | array | Ordered list of `{"cmd": "..."}` or `{"wait": seconds}` |
-| `priority` | bool (optional) | If `true`, this action interrupts the current one instantly (used for `stop`) |
-
-### Step types
-
-```json
-{ "cmd": "forward" }      sends a firmware command
-{ "wait": 2.5 }           pauses for 2.5 seconds
-```
-
-### Adding a new move
-
-Append an entry to the `"actions"` array. New trigger words are picked up the next time the tool starts — no restart needed if you use `--once`.
-
-```json
-{
-  "name": "patrol",
-  "triggers": ["patrol", "guard", "keep watch"],
-  "steps": [
-    { "cmd": "forward" }, { "wait": 2 },
-    { "cmd": "left" },    { "wait": 1 },
-    { "cmd": "forward" }, { "wait": 2 },
-    { "cmd": "right" },   { "wait": 1 },
-    { "cmd": "stop" }
-  ]
-}
-```
-
-### Notes
-
-The `circle`, `figure eight`, `spin`, and `wander` routines use discrete `left`/`right` turns. The Sesame step sequencer does not have a sine-gait engine, so these are sharp turns rather than smooth arcs.
-
----
-
-## `robot_link.py` — transport API
-
-Not run directly. Import it to build your own scripts:
-
-```python
-import robot_link
-
-# Auto-connect (WiFi then serial)
-link = robot_link.connect()
-
-# Send a command
-link.send("forward")
-
-# Read whatever the robot echoes back
-reply = link.read_reply(timeout=0.4)
-print(reply)
-
-# Discard buffered input before sending a new command
-link.drain()
-
-# Close when done
-link.close()
-```
-
-### `connect()` parameters
-
-```python
-robot_link.connect(
-    prefer="net",              # "net", "serial", "net-only", "serial-only"
-    host="quadruped.local",    # hostname or IP
-    tcp_port=8888,
-    serial_port=None,          # auto-detect if None
-    verbose=True               # print "Connected via ..." on success
-)
-```
-
-Returns a `TcpLink` or `SerialLink` object; both expose the same `.send()` / `.read_reply()` / `.drain()` / `.close()` / `.describe()` interface.
+Set `LOCAL_LLM_MODEL` in `.env` to match the pulled model name.
 
 ---
 
 ## Troubleshooting
 
-**`quadruped.local` doesn't resolve**
-- Confirm the robot serial monitor shows `WiFi: connected` and the mDNS line
-- Try connecting by IP: `--host 192.168.x.y`
-- mDNS (Bonjour) must be working on your network — it's disabled on some managed/enterprise WiFi
+**Robot not found** — confirm `SESAME_ROBOT_IP` in `.env` matches the robot's actual address. Try `ping quadruped.local` first.
 
-**No serial port found**
-- On macOS: check System Settings → Privacy & Security → USB; the XIAO may need a driver
-- Try `python3 voice_control.py --list` to see what ports are visible
+**Port 8889 in use** — another process (old `audio_receiver.py`) may be running. Kill it: `lsof -ti:8889 | xargs kill`
 
-**Voice recognition doesn't start**
-- Check that `software/vosk-model/` exists and contains `am/`, `conf/`, etc.
-- Run `python3 voice_control.py --list` to confirm your mic is visible
-- On macOS, grant microphone permission to Terminal when prompted
+**Whisper model slow on first run** — `faster_whisper` downloads the `base` model (~145 MB) on first transcription. Subsequent runs use the cache.
 
-**Commands fire but servos don't move**
-- Confirm PCA9685 is wired correctly and V+ rail is powered from the UBEC
-- Run `pose` to check the robot is reporting angles
-- Run `servo 0 90` directly to test a single channel
+**No audio on robot speaker** — ensure the MAX98357A Vcc is on the 3.3 V pin (not 5 V) and the robot is on battery or a clean USB power source. See [wiring.md](wiring.md).

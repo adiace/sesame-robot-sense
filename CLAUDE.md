@@ -33,15 +33,16 @@ Fork of dorianborian/sesame-robot adapted for the **Seeed XIAO ESP32-S3 Sense** 
 - **Known hardware issue**: audio garbled on USB power (5V rail noise from switch-mode supply). Fix: move MAX98357A Vcc from 5V pin → 3.3V pin. Clear audio confirmed on 3.7V battery.
 - Standalone test sketch at `audio_test/audio_test.ino` — plays all WAVs in a loop, no other hardware needed
 
-### Phase 5a built — voice assistant (not yet tested)
-- **Architecture**: hold MODE_BUTTON_PIN (GPIO2) → ESP32 records PDM mic → HTTP POST raw PCM to laptop service → laptop runs STT+LLM+TTS → returns WAV → ESP32 plays it
-- **Trigger**: IMU tap (TAPPED event) — no button needed. Replaces the old hehe/love reaction.
-- **Recording**: VAD-based — mic auto-stops after ~1.2s of silence. 5s timeout if no speech detected.
-- **Mic**: PDM on I2S_NUM_0 (shared with MAX98357A — ESP32-S3 only supports PDM on I2S0). `micRecordWithVAD()` uninstalls the speaker driver, installs PDM, records, then calls `audioReinstall()`. GPIO42=CLK, GPIO41=DATA. If silent, swap these in `mic_handler.h`.
-- **Recording buffer**: 10s max, allocated from 8MB PSRAM via `ps_malloc()`
-- **Voice service** (`software/voice_service.py`): Flask on port 5005. faster-whisper STT (local) → Ollama llama3.2 LLM (local) → pyttsx3 TTS (macOS system voices). All free, no API keys.
-- **Setup**: `bash software/setup_voice.sh` then set `VOICE_SERVER_IP` in `firmware/voice_config.h`
-- **Faces during interaction**: excited = listening, idle = thinking, resumes idle after playback
+### Phase 5a complete — always-on wake-word voice assistant
+- **Architecture**: always-on PDM mic (I2S_NUM_0) monitors energy continuously via a FreeRTOS task (`_micWakeTask`) pinned to Core 1. Energy onset → main loop records utterance via VAD → HTTP POST raw PCM to laptop service → laptop checks for wake word "sesame" → if found, runs STT+LLM+TTS → returns WAV → ESP32 plays it.
+- **Dual I2S**: speaker on I2S_NUM_1 (std TX, driver-ng), mic on I2S_NUM_0 (PDM RX, driver-ng). Both stay open simultaneously — no swap needed.
+- **Wake trigger**: energy RMS > 1600 for 10 consecutive 512-byte chunks (~80ms). Wake task self-suspends after triggering; resumes 2s after recording ends. 5s boot cooldown prevents false triggers at startup.
+- **Server-side wake word gate**: `voice_service.py` checks that Whisper transcription contains "sesame". Returns HTTP 204 (silent, no retry) if not found; 200 + WAV if found.
+- **Mic pins**: GPIO41=CLK, GPIO42=DATA (confirmed working — on camera module, must be seated).
+- **Recording buffer**: 10s max from PSRAM, 3s fallback internal RAM.
+- **Voice service** (`software/voice_service.py`): Flask on port 5005. faster-whisper STT → Groq llama-3.3-70b LLM (free tier, ~200ms) with Ollama fallback → macOS say+afconvert TTS.
+- **Setup**: set `VOICE_SERVER_IP` in `firmware/voice_config.h`; set `GROQ_API_KEY` in `~/.zshrc`.
+- **Faces during interaction**: excited = listening, idle = thinking, happy+talk_happy = speaking.
 
 ### Stubbed — no driver code yet
 - **OV2640 camera** — flex connector on the XIAO Sense module, no code. Phase 5c: use `esp32-camera` library, capture JPEG, send with voice request for vision queries.
@@ -115,7 +116,7 @@ With subtrim, logical 180° maps to ~2500 µs, within MG90S physical range.
 | 6 | L3 | Left front knee |
 | 7 | L4 | Left rear knee |
 
-Left-side servos (L1/L2/L3/L4, channels 2/3/6/7) are mirror-mounted. Mirror mounting is handled by using mirrored angles in movement-sequences.h (not servoRev flags). servoRev is false for all servos; servoSubtrim holds the per-servo mechanical center offsets.
+All servos use servoRev=false. Left-side hips (L1/L2) use mirrored angles in movement-sequences.h — bilateral body geometry provides the direction flip (same shaft rotation produces opposite leg motion on left vs right side). servoSubtrim holds per-servo mechanical center offsets calibrated during bring-up.
 
 ## I2C pins
 

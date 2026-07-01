@@ -2,93 +2,91 @@
 
 #include <Arduino.h>
 #include "esp_idf_version.h"
-#include "audio_handler.h"   // for stopAudio(), audioUninstall(), audioReinstall()
-#include "wifi_log.h"        // dlog() / dlogs() — Serial + WiFi log
+#include "wifi_log.h"
 
-// ── PDM microphone (XIAO ESP32-S3 Sense internal mic) ────────────────────────
-// PDM only works on I2S_NUM_0 on ESP32-S3, so we share it with the speaker.
-// micRecordWithVAD() calls audioUninstall(), opens PDM, records, then
-// calls audioReinstall() to restore the speaker.
+// ── PDM mic + ESP-SR WakeNet on-device wake word detection ───────────────────
+// Architecture:
+//   - I2S_NUM_0 PDM stays open permanently (speaker on I2S_NUM_1 is independent)
+//   - _micWakeTask (Core 1) feeds 480-sample chunks to WakeNet continuously
+//   - On "Hey Willow" detection: task self-suspends, sets _micWakeDetected
+//   - Main loop: play ding, call micRecord4s(), stream PCM to audio_receiver.py
+//   - micWakeClear(): resume monitoring with 2s cooldown
 //
-// IDF 5.x (Arduino 3.x): uses driver/i2s_pdm.h new channel API directly.
-//   ESP_I2S.h is NOT used — it redefines i2s_mode_t and conflicts with
-//   driver/i2s.h (legacy) that audio_handler.h uses for the speaker.
-// IDF 4.x (Arduino 2.x): uses legacy driver with non-blocking poll workaround
-//   for the ESP32-S3 PDM DMA bug.
+// Wake model: wn9_hiesp  ("Hi ESP" — the only model bundled with arduino-esp32 3.x)
+// Custom "Hey Sesame" model: train at https://wake-word.espressif.com
+//
+// Mic pins (XIAO ESP32-S3 Sense expansion board schematic):
+//   CLK → GPIO42,  DATA → GPIO41
+//
+// Requires 'model' partition in partitions.csv flashed with the model binary.
+// See firmware/partitions.csv and SETUP.md for flashing instructions.
 
-#define MIC_SAMPLE_RATE 16000
-#define MIC_PDM_CLK     41
-#define MIC_PDM_DATA    42
+#define MIC_SAMPLE_RATE   16000
+#define MIC_PDM_CLK       42
+#define MIC_PDM_DATA      41
+#define MIC_RECORD_BYTES  (MIC_SAMPLE_RATE * 2 * 4)    // 4s fixed = 128KB
+#define MIC_PSRAM_BYTES   (MIC_SAMPLE_RATE * 2 * 10)   // 10s = 320KB (PSRAM)
 
-#define MIC_MAX_BYTES      (MIC_SAMPLE_RATE * 2 * 10)   // 320 KB — needs PSRAM
-#define MIC_FALLBACK_BYTES (MIC_SAMPLE_RATE * 2 * 3)    //  96 KB — internal RAM
+#define WAKE_MODEL_NAME   "wn9_hiesp"
 
-static uint8_t* _micBuf    = nullptr;
-static size_t   _micMaxLen = 0;
+static uint8_t*      _micBuf           = nullptr;
+static size_t        _micMaxLen        = 0;
+static bool          _micReady         = false;
 
-// ── IDF 5.x: raw new channel API (driver/i2s_pdm.h) ─────────────────────────
-// Do NOT use ESP_I2S.h — it redefines i2s_mode_t and conflicts with
-// driver/i2s.h (legacy) included by audio_handler.h.
+static volatile bool     _micWakeDetected  = false;
+static volatile uint32_t _micWakeCooldown  = 0;
+static TaskHandle_t      _micWakeTaskHandle = nullptr;
+
+// ── PDM driver ────────────────────────────────────────────────────────────────
+// dma_frame_num=480: each DMA descriptor holds exactly 480 samples (960 bytes),
+// matching WakeNet's required chunk size so reads align with the model's window.
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-#include "driver/i2s_pdm.h"  // i2s_new_channel, i2s_channel_init_pdm_rx_mode, etc.
-
+#include "driver/i2s_pdm.h"
 static i2s_chan_handle_t _mic_rx_chan = nullptr;
 
-static bool _micInstallPDM() {
-    // Use I2S_CHANNEL_DEFAULT_CONFIG macro (flat struct — C++17 compatible).
-    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG((i2s_port_t)I2S_NUM_0, I2S_ROLE_MASTER);
-    chan_cfg.auto_clear = true;
-    if (i2s_new_channel(&chan_cfg, NULL, &_mic_rx_chan) != ESP_OK) {
-        Serial.println(F("Mic: new channel failed")); return false;
+static bool _micOpenPDM() {
+    if (_mic_rx_chan) return true;
+    i2s_chan_config_t cc = I2S_CHANNEL_DEFAULT_CONFIG((i2s_port_t)I2S_NUM_0, I2S_ROLE_MASTER);
+    cc.auto_clear    = true;
+    cc.dma_desc_num  = 4;     // 4 × 480 samples ≈ 120ms ring buffer
+    cc.dma_frame_num = 480;   // one WakeNet chunk per DMA descriptor
+    if (i2s_new_channel(&cc, NULL, &_mic_rx_chan) != ESP_OK) {
+        Serial.println(F("Mic: channel alloc failed")); return false;
     }
-
-    // Build PDM config field-by-field to avoid C++17 nested designated-initializer issues.
-    i2s_pdm_rx_config_t pdm_cfg = {};  // zero-init
-    pdm_cfg.clk_cfg  = I2S_PDM_RX_CLK_DEFAULT_CONFIG(MIC_SAMPLE_RATE);   // flat macro — OK
-    pdm_cfg.slot_cfg = I2S_PDM_RX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
-    pdm_cfg.gpio_cfg.clk = (gpio_num_t)MIC_PDM_CLK;
-    pdm_cfg.gpio_cfg.din = (gpio_num_t)MIC_PDM_DATA;
-    // invert_flags stays zero (no clock or data inversion needed)
-
-    if (i2s_channel_init_pdm_rx_mode(_mic_rx_chan, &pdm_cfg) != ESP_OK) {
+    i2s_pdm_rx_config_t pdm = {};
+    pdm.clk_cfg  = I2S_PDM_RX_CLK_DEFAULT_CONFIG(MIC_SAMPLE_RATE);
+    pdm.slot_cfg = I2S_PDM_RX_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
+    pdm.gpio_cfg.clk = (gpio_num_t)MIC_PDM_CLK;
+    pdm.gpio_cfg.din = (gpio_num_t)MIC_PDM_DATA;
+    if (i2s_channel_init_pdm_rx_mode(_mic_rx_chan, &pdm) != ESP_OK) {
         Serial.println(F("Mic: PDM init failed"));
         i2s_del_channel(_mic_rx_chan); _mic_rx_chan = nullptr; return false;
     }
     if (i2s_channel_enable(_mic_rx_chan) != ESP_OK) {
-        Serial.println(F("Mic: channel enable failed"));
+        Serial.println(F("Mic: enable failed"));
         i2s_del_channel(_mic_rx_chan); _mic_rx_chan = nullptr; return false;
     }
     return true;
 }
-
-static void _micUninstallPDM() {
-    if (_mic_rx_chan) {
-        i2s_channel_disable(_mic_rx_chan);
-        i2s_del_channel(_mic_rx_chan);
-        _mic_rx_chan = nullptr;
-    }
-}
-
 static size_t _micReadChunk(uint8_t* buf, size_t size) {
+    if (!_mic_rx_chan) return 0;
     size_t got = 0;
     i2s_channel_read(_mic_rx_chan, buf, size, &got, pdMS_TO_TICKS(100));
     return got;
 }
 
-// ── IDF 4.x: legacy driver with non-blocking poll ────────────────────────────
-#else
+#else  // IDF 4.x legacy path
 #include "driver/i2s.h"
 #define MIC_I2S_PORT I2S_NUM_0
-
-static bool _micInstallPDM() {
-    i2s_config_t cfg         = {};
+static bool _micOpenPDM() {
+    i2s_config_t cfg = {};
     cfg.mode                 = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM);
     cfg.sample_rate          = MIC_SAMPLE_RATE;
     cfg.bits_per_sample      = I2S_BITS_PER_SAMPLE_16BIT;
     cfg.channel_format       = I2S_CHANNEL_FMT_ONLY_RIGHT;
     cfg.communication_format = I2S_COMM_FORMAT_STAND_PCM_SHORT;
-    cfg.dma_buf_count        = 8;
-    cfg.dma_buf_len          = 64;
+    cfg.dma_buf_count        = 4;
+    cfg.dma_buf_len          = 480;
     cfg.use_apll             = false;
     cfg.intr_alloc_flags     = ESP_INTR_FLAG_LEVEL1;
     if (i2s_driver_install(MIC_I2S_PORT, &cfg, 0, NULL) != ESP_OK) return false;
@@ -102,13 +100,7 @@ static bool _micInstallPDM() {
     i2s_start(MIC_I2S_PORT);
     return true;
 }
-
-static void _micUninstallPDM() {
-    i2s_driver_uninstall(MIC_I2S_PORT);
-}
-
 static size_t _micReadChunk(uint8_t* buf, size_t size) {
-    // Non-blocking poll — workaround for ESP32-S3 legacy PDM DMA timeout bug.
     size_t got = 0;
     for (int t = 0; t < 20 && got == 0; t++) {
         i2s_read(MIC_I2S_PORT, buf, size, &got, 0);
@@ -118,117 +110,178 @@ static size_t _micReadChunk(uint8_t* buf, size_t size) {
 }
 #endif
 
+// ── ESP-SR WakeNet ────────────────────────────────────────────────────────────
+#include "esp_wn_iface.h"
+#include "esp_wn_models.h"
+#include "model_path.h"
+
+static const esp_wn_iface_t *_wakenet  = nullptr;
+static model_iface_data_t   *_wn_model = nullptr;
+static int                   _wn_chunk = 0;   // samples per WakeNet window
+
+static bool _wakeNetInit() {
+    srmodel_list_t *models = esp_srmodel_init("model");
+    if (!models) {
+        Serial.println(F("WakeNet: 'model' partition not found"));
+        Serial.println(F("  → add partitions.csv + flash model binary (see CLAUDE.md)"));
+        return false;
+    }
+    char *wn_name = esp_srmodel_filter(models, ESP_WN_PREFIX, "hiesp");
+    if (!wn_name) {
+        Serial.println(F("WakeNet: heywillow not found in model partition"));
+        return false;
+    }
+    _wakenet = esp_wn_handle_from_name(wn_name);
+    if (!_wakenet) { Serial.println(F("WakeNet: handle failed")); return false; }
+    _wn_model = _wakenet->create(wn_name, DET_MODE_90);
+    if (!_wn_model) { Serial.println(F("WakeNet: model create failed")); return false; }
+    _wn_chunk = _wakenet->get_samp_chunksize(_wn_model);
+    Serial.printf("WakeNet: ready  phrase='Hi ESP'  chunk=%d samp\n", _wn_chunk);
+    return true;
+}
+
+// ── Wake monitor task ─────────────────────────────────────────────────────────
+// Core 1, priority 1. Accumulates PDM samples into WakeNet-sized chunks and
+// calls detect(). On WAKENET_DETECTED: sets _micWakeDetected, self-suspends.
+// Main loop resumes the task (via micWakeClear()) after recording is done.
+
+static void _micWakeTask(void* arg) {
+    vTaskDelay(pdMS_TO_TICKS(3000));   // let setup() finish
+
+    if (!_wn_chunk || !_wakenet || !_wn_model) {
+        Serial.println(F("WakeNet: task aborted — model not initialised"));
+        vTaskDelete(NULL); return;
+    }
+
+    int16_t *chunk = (int16_t*)malloc((size_t)_wn_chunk * 2);
+    uint8_t *raw   = (uint8_t*)malloc((size_t)_wn_chunk * 2);
+    if (!chunk || !raw) {
+        Serial.println(F("WakeNet: buffer alloc failed"));
+        free(chunk); free(raw); vTaskDelete(NULL); return;
+    }
+
+    int collected = 0;
+
+    for (;;) {
+        if (millis() < _micWakeCooldown) { taskYIELD(); continue; }
+
+        size_t got = _micReadChunk(raw, (size_t)_wn_chunk * 2);
+        if (got >= 2) {
+            int n      = (int)(got / 2);
+            int needed = _wn_chunk - collected;
+            int take   = (n < needed) ? n : needed;
+            memcpy(chunk + collected, raw, (size_t)take * 2);
+            collected += take;
+
+            if (collected >= _wn_chunk) {
+                wakenet_state_t st = _wakenet->detect(_wn_model, chunk);
+                if (st == WAKENET_DETECTED && !_micWakeDetected) {
+                    _micWakeDetected = true;
+                    collected = 0;
+                    vTaskSuspend(NULL);
+                }
+                int leftover = n - take;
+                if (leftover > 0)
+                    memcpy(chunk, (int16_t*)raw + take, (size_t)leftover * 2);
+                collected = leftover > 0 ? leftover : 0;
+            }
+        }
+
+        taskYIELD();
+    }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 void micSetup() {
-    _micBuf = (uint8_t*)ps_malloc(MIC_MAX_BYTES);
+    _micBuf = (uint8_t*)ps_malloc(MIC_PSRAM_BYTES);
     if (_micBuf) {
-        _micMaxLen = MIC_MAX_BYTES;
+        _micMaxLen = MIC_PSRAM_BYTES;
         Serial.println(F("Mic: 10s PSRAM buffer"));
     } else {
-        _micBuf = (uint8_t*)malloc(MIC_FALLBACK_BYTES);
+        _micBuf = (uint8_t*)malloc(MIC_RECORD_BYTES);
         if (_micBuf) {
-            _micMaxLen = MIC_FALLBACK_BYTES;
-            Serial.println(F("Mic: 3s internal RAM buffer (enable OPI PSRAM for 10s)"));
+            _micMaxLen = MIC_RECORD_BYTES;
+            Serial.println(F("Mic: 4s internal RAM buffer"));
         } else {
-            Serial.println(F("Mic: alloc failed — voice disabled"));
+            Serial.println(F("Mic: alloc failed — voice disabled")); return;
         }
     }
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    Serial.println(F("Mic: IDF 5.x — using i2s_pdm channel API"));
-#else
-    Serial.println(F("Mic: IDF 4.x — using legacy PDM driver"));
-#endif
+    if (!_micOpenPDM()) { Serial.println(F("Mic: PDM open failed")); return; }
+    if (!_wakeNetInit()) {
+        Serial.println(F("WakeNet: disabled — flash model partition to enable"));
+        // PDM stays open so energy-level Serial prints still work for debugging
+        return;
+    }
+    _micReady = true;
+    xTaskCreatePinnedToCore(_micWakeTask, "micWake", 8192, nullptr, 1,
+                            &_micWakeTaskHandle, 1);
+    Serial.println(F("Mic: WakeNet monitor running (3s boot delay)"));
 }
 
-// Record with VAD. Swaps I2S_NUM_0 speaker ↔ PDM mic.
-// Returns captured byte count, or 0 if no speech within timeout.
-size_t micRecordWithVAD() {
-    if (!_micBuf) return 0;
+bool micWakeTriggered() { return _micWakeDetected; }
 
-    stopAudio();
-    audioUninstall();
-    delay(50);
+void micWakeClear() {
+    _micWakeDetected = false;
+    _micWakeCooldown = millis() + 2000;
+    if (_micWakeTaskHandle) vTaskResume(_micWakeTaskHandle);
+}
 
-    if (!_micInstallPDM()) {
-        Serial.println(F("Mic: PDM install failed"));
-        audioReinstall();
-        return 0;
-    }
-    delay(100);
-    dlogs("Mic: recording...");
+// Record PCM with VAD: stop when speech ends (silence after speech detected).
+// Max 4 seconds. Calls micWakeClear() automatically before returning.
+size_t micRecord4s() {
+    if (!_micBuf) { micWakeClear(); return 0; }
 
-    // VAD constants. Observed: ambient 1000–1600 RMS, clear speech 2000–4000+.
-    // VAD_SPEECH: onset threshold (low enough to catch soft speech start).
-    // VAD_LOUD: threshold to reset the silence timer. Must be above the ambient
-    // noise ceiling (~1800 observed) so spurious spikes don't extend recording.
-    const float    VAD_SPEECH        = 1600.0f;
-    const float    VAD_LOUD          = 1900.0f;  // only real speech resets silence timer
-    const int      SPEECH_START      = 5;        // loud chunks to confirm speech start
-    const uint32_t SILENCE_END_MS    = 1800;     // ms of no VAD_LOUD chunk to end recording
-    const uint32_t IDLE_TIMEOUT_MS   = 2400;     // ms to wait for speech before giving up
-    const int      LEAD_IN_CHUNKS    = 8;        // chunks (~128ms) kept before speech onset
+    const size_t CHUNK        = 960;   // 60ms per chunk at 16kHz
+    const int    SILENCE_HOLD = 12;    // 12 × 60ms = 720ms silence → stop
+    const size_t MAX_BYTES    = (MIC_RECORD_BYTES < _micMaxLen)
+                                ? MIC_RECORD_BYTES : _micMaxLen;
 
-    size_t   captured       = 0;
-    size_t   speechTrimByte = 0;
-    bool     speechTrimSet  = false;
-    int      loudChunks     = 0;
-    bool     speaking       = false;
-    int      totalChunks    = 0;
-    uint32_t lastLoudMs     = millis();  // time of last chunk >= VAD_LOUD
-    size_t   chunkSize      = 512;
-
-    while (captured < _micMaxLen) {
-        size_t want = min(chunkSize, _micMaxLen - captured);
-        size_t got  = _micReadChunk(_micBuf + captured, want);
-
-        if (got == 0) {
-            totalChunks++;
-            if (!speaking && (millis() - lastLoudMs) >= IDLE_TIMEOUT_MS) break;
-            continue;
+    // Calibrate noise floor from the first 6 chunks (~360ms) before speech starts.
+    // Threshold = noise_floor * 2 + 300, clamped to [600, 2500].
+    float noiseSum = 0.0f; int noiseChunks = 0;
+    {
+        uint8_t* calBuf = _micBuf;   // write into start of buffer (overwritten by real record)
+        while (noiseChunks < 6) {
+            size_t got = _micReadChunk(calBuf, CHUNK);
+            if (got < 2) continue;
+            int16_t* s = (int16_t*)calBuf;
+            int n = (int)(got / 2);
+            float sum = 0.0f;
+            for (int i = 0; i < n; i++) sum += (float)s[i] * s[i];
+            noiseSum += sqrtf(sum / n);
+            noiseChunks++;
         }
+    }
+    float noiseFloor  = noiseSum / noiseChunks;
+    float speechThresh = constrain(noiseFloor * 2.0f + 300.0f, 600.0f, 2500.0f);
+    dlog("Mic: noise=%.0f thresh=%.0f", noiseFloor, speechThresh);
+
+    size_t captured   = 0;
+    int    silenceRun = 0;
+    bool   speechSeen = false;
+
+    while (captured < MAX_BYTES) {
+        size_t want = (CHUNK < MAX_BYTES - captured) ? CHUNK : MAX_BYTES - captured;
+        size_t got  = _micReadChunk(_micBuf + captured, want);
+        if (got < 2) continue;
 
         int16_t* s = (int16_t*)(_micBuf + captured);
         int n = (int)(got / 2);
         float sum = 0.0f;
-        for (int i = 0; i < n; i++) sum += (float)s[i] * (float)s[i];
+        for (int i = 0; i < n; i++) sum += (float)s[i] * s[i];
         float rms = sqrtf(sum / n);
-
         captured += got;
-        totalChunks++;
 
-        if (totalChunks % 30 == 1)
-            dlog("Mic RMS: %.0f", rms);
-
-        if (rms >= VAD_SPEECH) {
-            loudChunks++;
-            if (rms >= VAD_LOUD) lastLoudMs = millis();  // only clear speech resets timer
-            if (!speaking && loudChunks >= SPEECH_START) {
-                speaking = true;
-                size_t keepBack = (size_t)(LEAD_IN_CHUNKS + SPEECH_START) * want;
-                speechTrimByte = (captured > keepBack) ? captured - keepBack : 0;
-                speechTrimSet  = true;
-                dlog("Mic: speech onset, recording...");
-            }
-        } else {
-            loudChunks = 0;
-            if (!speaking && (millis() - lastLoudMs) >= IDLE_TIMEOUT_MS) break;
-            if ( speaking && (millis() - lastLoudMs) >= SILENCE_END_MS)  break;
+        if (rms >= speechThresh) {
+            speechSeen = true;
+            silenceRun = 0;
+        } else if (speechSeen) {
+            if (++silenceRun >= SILENCE_HOLD) break;
         }
     }
-
-    _micUninstallPDM();
-    audioReinstall();
-
-    if (!speaking) return 0;
-
-    // Shift buffer left to remove pre-speech silence before upload.
-    if (speechTrimSet && speechTrimByte > 0) {
-        size_t trimmed = captured - speechTrimByte;
-        memmove(_micBuf, _micBuf + speechTrimByte, trimmed);
-        dlog("Mic: trimmed %zu bytes lead-in, sending %zu bytes", speechTrimByte, trimmed);
-        return trimmed;
-    }
+    dlog("Mic: recorded %zu bytes (%.1fs)", captured, captured / 32000.0f);
+    micWakeClear();
     return captured;
 }
 

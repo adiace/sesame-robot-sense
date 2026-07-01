@@ -8,6 +8,6 @@
 //
 //    macOS quick IP check: ipconfig getifaddr en0
 
-#define VOICE_SERVER_IP    "192.168.68.57"   // ← set to your laptop's IP
-#define VOICE_SERVER_PORT  5005
+#define VOICE_SERVER_IP    "YOUR_LAPTOP_IP"   // ← set to your laptop's IP (ipconfig getifaddr en0)
+#define AUDIO_RX_PORT      8889              // audio_receiver.py — receives 4s PCM clip
 

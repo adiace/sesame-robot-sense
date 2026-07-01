@@ -6,13 +6,10 @@
 #include "pins.h"
 
 // ── MAX98357A I2S audio driver (IDF 5.x new channel API) ─────────────────────
-// Must use ONLY new API everywhere in the firmware. Mixing legacy i2s_driver_*
-// with new i2s_new_channel causes an IDF component init abort before setup().
-//
-// audioUninstall() releases I2S_NUM_0 so mic_handler can open it as PDM RX.
-// audioReinstall() recreates the TX channel after mic recording finishes.
+// Speaker uses I2S_NUM_1 (standard TX). Mic uses I2S_NUM_0 (PDM RX).
+// Both run simultaneously — no install/uninstall swap needed.
 
-#define AUDIO_I2S_PORT   I2S_NUM_0
+#define AUDIO_I2S_PORT   I2S_NUM_1
 #define AUDIO_PUMP_BYTES 256
 
 // Master volume: 0.0–1.0. Reduce if audio is distorted/clipping.
@@ -24,6 +21,12 @@ static File              _audioFile;
 static bool              _audioPlaying  = false;
 static uint32_t          _audioLeft     = 0;
 static i2s_chan_handle_t _audio_tx_chan = nullptr;
+
+// Memory-based playback (voice response WAV lives in PSRAM while playing)
+static uint8_t*  _audioMemBuf  = nullptr;
+static uint32_t  _audioMemPos  = 0;
+static uint32_t  _audioMemEnd  = 0;
+static bool      _audioFromMem = false;
 
 // ── WAV parser ────────────────────────────────────────────────────────────────
 static uint32_t _parseWAV(File &f, uint32_t &dataSize) {
@@ -49,6 +52,31 @@ static uint32_t _parseWAV(File &f, uint32_t &dataSize) {
         if (!f.seek(chunkStart + sz + (sz & 1))) break;
     }
     Serial.println(F("WAV: no data chunk")); return 0;
+}
+
+// In-memory WAV parser: walks RIFF chunks in a byte buffer.
+// Returns sample rate and fills dataOffset/dataSize; 0 on error.
+static uint32_t _parseWAVMem(const uint8_t* buf, uint32_t len,
+                               uint32_t& dataOffset, uint32_t& dataSize) {
+    if (len < 12) return 0;
+    if (memcmp(buf, "RIFF", 4) || memcmp(buf + 8, "WAVE", 4)) return 0;
+    uint32_t pos = 12;
+    uint32_t sampleRate = 0;
+    while (pos + 8 <= len) {
+        uint32_t sz = (uint32_t)buf[pos+4] | ((uint32_t)buf[pos+5]<<8)
+                    | ((uint32_t)buf[pos+6]<<16) | ((uint32_t)buf[pos+7]<<24);
+        if (!memcmp(buf + pos, "fmt ", 4) && sz >= 16) {
+            sampleRate = (uint32_t)buf[pos+12] | ((uint32_t)buf[pos+13]<<8)
+                       | ((uint32_t)buf[pos+14]<<16) | ((uint32_t)buf[pos+15]<<24);
+        } else if (!memcmp(buf + pos, "data", 4)) {
+            dataOffset = pos + 8;
+            dataSize   = sz;
+            if (dataOffset + dataSize > len) dataSize = len - dataOffset;
+            return sampleRate;
+        }
+        pos += 8 + sz + (sz & 1);
+    }
+    return 0;
 }
 
 // ── Channel open / close ──────────────────────────────────────────────────────
@@ -141,25 +169,17 @@ void audioActivationChirp() {
 }
 
 // Two descending beeps: "got it, sending to server now."
-// Call immediately after micRecordWithVAD() returns with speech detected.
 void audioGotItChirp() {
     _audioTone(1000, 100);
     _audioSilence(40);
     _audioTone(650, 140);
 }
 
-// Release I2S_NUM_0 so mic_handler can open it as PDM RX.
-void audioUninstall() {
-    if (_audio_tx_chan) {
-        i2s_channel_disable(_audio_tx_chan);
-        i2s_del_channel(_audio_tx_chan);
-        _audio_tx_chan = nullptr;
-    }
-}
-
-// Restore speaker channel after mic recording.
-void audioReinstall() {
-    _audioInstallSpeaker();
+// Two short low beeps: "sorry, didn't catch that."
+void audioPardonChirp() {
+    _audioTone(500, 120);
+    _audioSilence(60);
+    _audioTone(400, 180);
 }
 
 // ── Internal write helpers ────────────────────────────────────────────────────
@@ -196,11 +216,41 @@ bool isAudioPlaying() { return _audioPlaying; }
 
 void stopAudio() {
     if (_audioPlaying) {
-        _audioFile.close();
+        if (_audioFromMem) {
+            free(_audioMemBuf);
+            _audioMemBuf  = nullptr;
+            _audioFromMem = false;
+        } else {
+            _audioFile.close();
+        }
         _audioPlaying = false;
         _audioLeft    = 0;
     }
     // auto_clear=true drains DMA with zeros automatically; nothing explicit needed.
+}
+
+// Play WAV from a PSRAM buffer. Takes ownership — buffer is freed by stopAudio().
+// Use this for voice responses to avoid SPIFFS size/speed limits.
+void playWavFromMemory(uint8_t* buf, uint32_t len) {
+    stopAudio();
+    uint32_t dataOffset = 0, dataSize = 0;
+    uint32_t rate = _parseWAVMem(buf, len, dataOffset, dataSize);
+    if (!rate || !dataSize) {
+        Serial.println(F("Audio: bad WAV in memory"));
+        free(buf); return;
+    }
+    if (rate != 16000 && _audio_tx_chan) {
+        i2s_std_clk_config_t clk = I2S_STD_CLK_DEFAULT_CONFIG(rate);
+        i2s_channel_disable(_audio_tx_chan);
+        i2s_channel_reconfig_std_clock(_audio_tx_chan, &clk);
+        i2s_channel_enable(_audio_tx_chan);
+    }
+    _audioMemBuf  = buf;
+    _audioMemPos  = dataOffset;
+    _audioMemEnd  = dataOffset + dataSize;
+    _audioFromMem = true;
+    _audioPlaying = true;
+    Serial.printf("Audio: RAM play  rate=%u  bytes=%u\n", rate, dataSize);
 }
 
 void playWavFromSPIFFS(const char* path) {
@@ -225,12 +275,24 @@ void playWavFromSPIFFS(const char* path) {
 
 void audioPump() {
     if (!_audioPlaying || !_audio_tx_chan) return;
-    if (_audioLeft == 0) { stopAudio(); return; }
-    uint8_t mono[AUDIO_PUMP_BYTES];
-    size_t  n   = min((uint32_t)AUDIO_PUMP_BYTES, _audioLeft);
-    int     got = _audioFile.read(mono, (int)n);
-    if (got <= 0) { stopAudio(); return; }
     uint8_t stereo[AUDIO_PUMP_BYTES * 2];
+    int got = 0;
+    uint8_t mono[AUDIO_PUMP_BYTES];
+
+    if (_audioFromMem) {
+        if (_audioMemPos >= _audioMemEnd) { stopAudio(); return; }
+        uint32_t avail = _audioMemEnd - _audioMemPos;
+        got = (int)((avail < (uint32_t)AUDIO_PUMP_BYTES) ? avail : AUDIO_PUMP_BYTES);
+        memcpy(mono, _audioMemBuf + _audioMemPos, (size_t)got);
+        _audioMemPos += (uint32_t)got;
+    } else {
+        if (_audioLeft == 0) { stopAudio(); return; }
+        size_t n = min((uint32_t)AUDIO_PUMP_BYTES, _audioLeft);
+        got = _audioFile.read(mono, (int)n);
+        if (got <= 0) { stopAudio(); return; }
+        _audioLeft -= (uint32_t)got;
+    }
+
     for (int i = 0; i < got; i += 2) {
         int16_t s = (int16_t)((uint16_t)mono[i] | ((uint16_t)mono[i+1] << 8));
         s = (int16_t)(s * AUDIO_VOLUME);
@@ -240,5 +302,4 @@ void audioPump() {
         stereo[i*2+3] = stereo[i*2+1];
     }
     _audioWriteStereo(stereo, (size_t)got * 2);
-    _audioLeft -= (uint32_t)got;
 }

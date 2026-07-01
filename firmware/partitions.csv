@@ -1,0 +1,20 @@
+# XIAO ESP32-S3 Sense — 8MB flash partition table
+# Required for ESP-SR WakeNet: the 'model' partition holds the wake word binary.
+#
+# Flash layout (8MB = 0x800000 total):
+#   nvs      20KB   — NVS calibration (servo trims, reversal flags)
+#   otadata   8KB   — OTA metadata
+#   app0      4MB   — firmware
+#   spiffs   512KB  — WAV audio files (hehe.wav, woah_flying.wav, etc.)
+#   model      4MB  — ESP-SR WakeNet model binary (wn9_heywillow_tts)
+#
+# After flashing firmware via Arduino IDE, flash the model once with esptool:
+#   esptool.py --chip esp32s3 -p /dev/tty.usbmodem* write_flash 0x400000 \
+#     ~/.arduino15/packages/esp32/hardware/esp32/3.*/tools/esp_sr/models/wn9_heywillow_tts_v*.bin
+#
+# Name,    Type, SubType, Offset,   Size,     Flags
+nvs,       data, nvs,     0x9000,   0x5000,
+otadata,   data, ota,     0xe000,   0x2000,
+app0,      app,  ota_0,   0x10000,  0x3F0000,
+spiffs,    data, spiffs,  0x400000, 0x80000,
+model,     data, spiffs,  0x480000, 0x380000,

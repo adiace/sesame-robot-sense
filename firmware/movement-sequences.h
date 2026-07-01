@@ -68,6 +68,7 @@ void runTurnLeft();
 void runTurnRight();
 void runWiggle();
 void runWiggleSmall();
+void runBoxPose();
 
 // ====== POSES ======
 inline void runRestPose() { 
@@ -330,7 +331,7 @@ inline void runWalkPose() {
   setFaceWithMode("walk", FACE_ANIM_ONCE);
   // Initial Step
   setServoAngle(R3, 135); setServoAngle(L3, 45);
-  setServoAngle(R2, 100); setServoAngle(L1, 25);
+  setServoAngle(R2,  45); setServoAngle(L1, 45);
   if (!pressingCheck("forward", frameDelay)) return;
 
   for (int i = 0; i < walkCycles; i++) {
@@ -339,14 +340,14 @@ inline void runWalkPose() {
     setServoAngle(L4, 135); setServoAngle(L2, 90);
     setServoAngle(R4,   0); setServoAngle(R1, 180);
     if (!pressingCheck("forward", frameDelay)) return;
-    setServoAngle(R2, 45); setServoAngle(L1, 90);
+    setServoAngle(R2,  0); setServoAngle(L1, 90);
     if (!pressingCheck("forward", frameDelay)) return;
-    setServoAngle(R4,  45); setServoAngle(L4, 180);
+    setServoAngle(R4, 45); setServoAngle(L4, 180);
     if (!pressingCheck("forward", frameDelay)) return;
     setServoAngle(R3, 180); setServoAngle(L3, 45);
-    setServoAngle(R2, 90); setServoAngle(L1, 0);
+    setServoAngle(R2,  90); setServoAngle(L1,  0);
     if (!pressingCheck("forward", frameDelay)) return;
-    setServoAngle(L2, 135); setServoAngle(R1, 90);
+    setServoAngle(L2, 180); setServoAngle(R1, 90);
     if (!pressingCheck("forward", frameDelay)) return;
   }
   runStandPose(1);
@@ -361,17 +362,17 @@ inline void runWalkBackward() {
   for (int i = 0; i < walkCycles; i++) {
     setServoAngle(R3, 135); setServoAngle(L3, 0);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(L4, 135); setServoAngle(L2, 135);
+    setServoAngle(L4, 135); setServoAngle(L2,  90);
     setServoAngle(R4,   0); setServoAngle(R1,  90);
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(R2, 90); setServoAngle(L1, 0);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(R4,  45); setServoAngle(L4, 180);
+    setServoAngle(R4, 45); setServoAngle(L4, 180);
     if (!pressingCheck("backward", frameDelay)) return;
     setServoAngle(R3, 180); setServoAngle(L3, 45);
-    setServoAngle(R2, 45); setServoAngle(L1, 90);
+    setServoAngle(R2,   0); setServoAngle(L1, 90);
     if (!pressingCheck("backward", frameDelay)) return;
-    setServoAngle(L2, 90); setServoAngle(R1, 180);
+    setServoAngle(L2, 180); setServoAngle(R1, 180);
     if (!pressingCheck("backward", frameDelay)) return;
   }
   runStandPose(1);
@@ -456,4 +457,22 @@ inline void runWiggleSmall() {
     delayWithFace(100);
   }
   runStandPose(1);
+}
+
+// Boxing stance: hips pulled ~30° toward neutral (body shifts back),
+// knees bent ~40° so the robot drops low and sits wide edge-to-edge.
+// Stand reference: hips R1=135/R2=45/L1=45/L2=135, knees R4=0/R3=180/L3=0/L4=180
+inline void runBoxPose() {
+  Serial.println(F("BOX"));
+  setFaceWithMode("angry", FACE_ANIM_ONCE);
+  setServoAngle(R1, 148);  // front right hip: 13° inward from stand (135)
+  setServoAngle(R2,  32);  // rear right hip:  13° inward from stand (45)
+  setServoAngle(L1,  32);  // front left hip:  mirror
+  setServoAngle(L2, 148);  // rear left hip:   mirror
+  setServoAngle(R4,  47);  // right front knee: bent 47° down (lower than stand=0)
+  setServoAngle(R3, 133);  // right rear knee:  bent 47° down (lower than stand=180)
+  setServoAngle(L3,  47);  // left front knee:  bent 47° down
+  setServoAngle(L4, 133);  // left rear knee:   bent 47° down
+  enterIdle();
+  if (currentCommand == "box") currentCommand = "";
 }

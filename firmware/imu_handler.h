@@ -7,13 +7,8 @@
 #include "wifi_log.h"
 
 // MPU-6050 / MPU-6500 clone direct I2C driver.
-// Phase 1 logic with minimal Phase 2 changes:
-//   - Wire.endTransmission(true) throughout (ESP32-S3 repeated-start bug)
-//   - imuEmit() writes JSON to Serial + pushes to imuEventQueue (Core 0 TCP)
-//   - FLIP uses raw-accel flipAngle = atan2(horiz, az) (0–180°) instead of
-//     slow cfPitch/cfRoll so it detects inversion in < 100ms
-//   - goto check_level after every event so LEVEL always runs
-//   - flipRate blocks TAPPED during flip-back motion
+// Wire.endTransmission(true) throughout — ESP32-S3 repeated-start is buggy.
+// imuEmit() logs JSON to Serial and pushes to imuEventQueue for TCP streaming.
 
 // ── MPU register addresses ──────────────────────────────────────────────────
 #define MPU_REG_SMPLRT_DIV    0x19
@@ -33,10 +28,20 @@
 #define IMU_FLIP_ANGLE_DEG    100.0f
 #define IMU_FLIP_SAMPLES        5      // 5 × 20ms = 100ms
 
-// TAPPED: jerk spike; blocked when device is rotating (flip/flip-back)
-#define IMU_TAP_JERK           55.0f  // m/s²/s — finger tap threshold (raised from 28; table vibrations reach ~30-35)
-#define IMU_TAP_LOCKOUT_MS    150
-#define IMU_TAP_RATE_MAX      80.0f   // °/s — real taps: 1–52; handling: 83–652
+// TAPPED: 2-second peak-window detection.
+// We track the max |jerk| seen across the last 100 polls (~2s at 50Hz).
+// Tap fires ONLY when that peak has stayed below IMU_TAP_PEAK_MAX for the full
+// 2-second window — meaning the robot has been genuinely still.  Any servo
+// correction or movement spike above the threshold blocks tap for the entire
+// next 2 seconds automatically, with no explicit idle-state gate needed.
+// After a real tap (jerk ~60+), the tap value stays in the window for 2s,
+// auto-blocking re-trigger before the 6s cooldown runs out anyway.
+#define IMU_TAP_JERK           38.0f  // absolute minimum spike to qualify as a tap
+#define IMU_TAP_LOCKOUT_MS    200     // inter-sample debounce (ms)
+#define IMU_TAP_COOLDOWN_MS  6000     // lockout after TAPPED fires (covers wiggle + settle)
+#define IMU_TAP_RATE_MAX      80.0f   // °/s — real taps ≤52; flip-back motion ≥83
+#define IMU_TAP_PEAK_MAX      18.0f   // 2s window peak must be below this to allow tap
+#define IMU_TAP_WIN_SIZE      100     // number of polls in window (100 × 20ms = 2s)
 
 // PICKUP: EMA residual
 // Higher alpha = EMA tracks faster = tap jolts don't inflate residual as long.
@@ -45,11 +50,11 @@
 #define IMU_PICKUP_RESIDUAL   3.2f    // m/s² — must be sustained lifting motion, not a tap jolt
 #define IMU_PICKUP_MS        160      // ms sustained above threshold
 
-// FREEFALL: hardware registers (Phase 1 values)
+// FREEFALL: hardware registers (unused — hardware interrupt disabled on clones)
 #define IMU_FF_THR_VAL        10
 #define IMU_FF_DUR_VAL        80
 
-// LEVEL: complementary filter < 15° sustained 400ms (Phase 1 values)
+// LEVEL: complementary filter < 15° sustained 3s → return to idle
 #define IMU_LEVEL_ANGLE_DEG   15.0f
 #define IMU_LEVEL_SUSTAIN_MS  3000
 
@@ -83,15 +88,15 @@ static bool  cfSeeded = false;
 static unsigned long imuLevelStart = 0;
 
 // Tap
-static float         prevMag        = 9.81f;
-static unsigned long tapLockoutEnd  = 0;
-// Require a LEVEL event between a PICKUP and the next TAPPED.
-// Prevents set-down impact from firing as a tap.
-static bool          tapNeedsLevel  = false;
-// Deferred tap: confirm on the next poll that mag returned to baseline
-// (distinguishes a real tap from the initial jolt of a pickup)
-static bool          tapPending     = false;
-static float         tapPendingMagG = 0.0f;
+static float         prevMag           = 9.81f;
+static unsigned long tapLockoutEnd     = 0;
+static float         _tapPeakBuf[IMU_TAP_WIN_SIZE] = {};
+static uint8_t       _tapPeakIdx       = 0;
+static uint8_t       _tapPeakFill      = 0;
+static bool          tapNeedsLevel     = false;  // set on PICKUP; cleared on LEVEL
+static bool          tapPending        = false;
+static bool          tapPendingNoiseOk = false;  // locked at spike time; avoids re-check after spike enters buffer
+static float         tapPendingMagG    = 0.0f;
 static float         tapPendingP    = 0.0f;
 static float         tapPendingR    = 0.0f;
 
@@ -100,9 +105,9 @@ static float         pickupEma   = 9.81f;
 static unsigned long pickupStart = 0;
 
 // Freefall (software): mag < 0.4g sustained 120ms
-static unsigned long freefallStart = 0;
-#define IMU_FF_MAG_THRESH  3.9f   // m/s² ≈ 0.4g
+#define IMU_FF_MAG_THRESH  3.9f
 #define IMU_FF_SUSTAIN_MS  120
+static unsigned long freefallStart = 0;
 
 // ── I2C helpers ──────────────────────────────────────────────────────────────
 static bool imuWrite(uint8_t reg, uint8_t val) {
@@ -274,10 +279,22 @@ void imuPoll() {
   cfRoll  = cfAlpha * cfRoll  + (1.0f - cfAlpha) * accelRoll;
   float tiltAngle = sqrtf(cfPitch*cfPitch + cfRoll*cfRoll);
 
-  // ── Shake window variance ────────────────────────────────────────────────
-  // ── Jerk ─────────────────────────────────────────────────────────────────
+  // ── Jerk + 2-second peak window ──────────────────────────────────────────
   float jerk = (mag - prevMag) / dt;
   prevMag = mag;
+
+  // 2-second peak window. History peak is read BEFORE the current sample is stored —
+  // adding first would let the tap spike block its own detection.
+  float tapPeak2s = 0.0f;
+  for (uint8_t _i = 0; _i < IMU_TAP_WIN_SIZE; _i++)
+    if (_tapPeakBuf[_i] > tapPeak2s) tapPeak2s = _tapPeakBuf[_i];
+  bool noiseOk = (_tapPeakFill >= IMU_TAP_WIN_SIZE) && (tapPeak2s < IMU_TAP_PEAK_MAX);
+  // Now store current sample (ages into history for future polls)
+  float _absjerk = fabsf(jerk);
+  _tapPeakBuf[_tapPeakIdx] = _absjerk;
+  _tapPeakIdx = (_tapPeakIdx + 1) % IMU_TAP_WIN_SIZE;
+  if (_tapPeakFill < IMU_TAP_WIN_SIZE) _tapPeakFill++;
+  const float tapThresh = IMU_TAP_JERK;
 
   // ── EMA residual ─────────────────────────────────────────────────────────
   pickupEma = pickupEma * (1.0f - IMU_EMA_ALPHA) + mag * IMU_EMA_ALPHA;
@@ -312,28 +329,40 @@ void imuPoll() {
   // on the same poll as the jerk spike (which previously blocked tap for 1.5s).
   if (tapPending) {
     tapPending = false;
-    dlog("IMU: tap confirm residual=%.2f flipRate=%.0f needsLevel=%d",
-         pickupResidual, flipRate, (int)tapNeedsLevel);
     bool tiltOk = (fabsf(cfPitch) < 25.0f && fabsf(cfRoll) < 25.0f);
-    if (!tapNeedsLevel && tiltOk && fabsf(pickupResidual) < 0.5f && flipRate < IMU_TAP_RATE_MAX) {
+    bool confirmOk = tapPendingNoiseOk;  // use locked value — history now includes tap spike
+    dlog("IMU: tap confirm jerk=%.1f peak2s=%.1f thresh=%.1f residual=%.2f needsLevel=%d noiseOk=%d",
+         jerk, tapPeak2s, tapThresh, pickupResidual, (int)tapNeedsLevel, (int)confirmOk);
+    if (!tapNeedsLevel && tiltOk && confirmOk
+        && fabsf(pickupResidual) < 0.5f && flipRate < IMU_TAP_RATE_MAX) {
       imuEmit(IMU_TAPPED, tapPendingMagG, tapPendingP, tapPendingR);
+      tapLockoutEnd = now + IMU_TAP_COOLDOWN_MS;
+      tapNeedsLevel = true;
       goto check_level;
     }
-    if (tapNeedsLevel)
-      dlog("IMU: tap rejected (waiting for LEVEL after pickup)");
+    if (!confirmOk)
+      dlog("IMU: tap rejected (peak2s was %.1f >= %.1f or window not full — not quiet yet)", tapPeak2s, (float)IMU_TAP_PEAK_MAX);
+    else if (tapNeedsLevel)
+      dlog("IMU: tap rejected (waiting for LEVEL after pickup/tap)");
     else if (!tiltOk)
       dlog("IMU: tap rejected (tilt p=%.1f r=%.1f)", cfPitch, cfRoll);
     else
       dlog("IMU: tap rejected (|residual|=%.2f flipRate=%.0f)", fabsf(pickupResidual), flipRate);
   }
-  if (jerk > IMU_TAP_JERK && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
-    dlog("IMU: jerk=%.1f (thresh=%.0f) → tap pending", jerk, (float)IMU_TAP_JERK);
-    tapLockoutEnd  = now + IMU_TAP_LOCKOUT_MS;
-    tapPending     = true;
-    tapPendingMagG = magG;
-    tapPendingP    = cfPitch;
-    tapPendingR    = cfRoll;
-    goto check_level;  // skip pickup check on the same poll as jerk spike
+  // Diagnostic: log every qualifying jerk so we can tune thresholds
+  if (fabsf(jerk) > 15.0f && now > tapLockoutEnd)
+    dlog("IMU: jerk=%.1f peak2s=%.1f thresh=%.1f %s",
+         jerk, tapPeak2s, tapThresh,
+         (jerk > tapThresh && noiseOk) ? "*** TAP PENDING ***" : "(blocked)");
+
+  if (jerk > tapThresh && noiseOk && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
+    tapLockoutEnd        = now + IMU_TAP_LOCKOUT_MS;
+    tapPending           = true;
+    tapPendingNoiseOk    = noiseOk;  // lock: history was quiet at detection moment
+    tapPendingMagG       = magG;
+    tapPendingP          = cfPitch;
+    tapPendingR          = cfRoll;
+    goto check_level;
   }
   // ── PICKUP ───────────────────────────────────────────────────────────────
   if (pickupResidual > IMU_PICKUP_RESIDUAL) {

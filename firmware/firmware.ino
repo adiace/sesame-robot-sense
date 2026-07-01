@@ -60,6 +60,10 @@ WiFiClient tcpClient;
 WiFiServer logServer(TCP_LOG_PORT);
 WiFiClient logClient;
 
+// Updated by applyCommandLine() on Core 1; read by imuPoll() to gate tap detection.
+// Tap fires only when no command has run for 3+ seconds (robot is truly idle/settled).
+volatile uint32_t gLastCommandMs = 0;
+
 // Global state for animations
 String currentCommand = "";
 String currentFaceName = "default";
@@ -113,7 +117,7 @@ Adafruit_PWMServoDriver pwm(PCA9685_ADDR);
 // servoSubtrim: per-servo offset so setServoAngle(i, 90) lands at mechanical center.
 // Calibrated during physical bring-up — see motor_tester/README.md.
 // Fine-tune per-servo after physical bring-up with the 'trim' CLI command, then 'dump' to bake in.
-int8_t servoSubtrim[8] = {-7, 5, 11, -2, -7, 2, 2, 3};  // R1 R2 L1 L2 R4 R3 L3 L4
+int8_t servoSubtrim[8] = {-9, 1,  6, -5, -7, 2, 2, 3};  // R1 R2 L1 L2 R4 R3 L3 L4
 int8_t servoTrim[8]    = {0, 0, 0, 0, 0, 0, 0, 0};      // NVS-backed runtime trim
 bool   servoRev[8]     = {false, false, false, false,
                            false, false, false, false};
@@ -618,6 +622,24 @@ void loop() {
   imuPoll();
   handleImuReaction(imuConsumeReaction());
 
+  // ── ESP-SR wake word → 4s clip → audio_receiver.py → command on port 8888 ──
+  // WakeNet (Core 1 task) detects "Hey Willow", sets _micWakeDetected.
+  // Robot records 4s, streams to laptop:8889. Server transcribes with Vosk,
+  // sends the recognised command back to robot:8888 (or "pardon" if nothing).
+  if (micWakeTriggered() && !isAudioPlaying()) {
+    exitIdle();
+    audioActivationChirp();      // three ascending beeps = "I'm listening"
+    setFace("excited");
+    size_t captured = micRecord4s();
+    if (captured > 0) {
+      audioGotItChirp();         // two descending beeps = "sent"
+      setFace("idle");
+      voiceStreamToServer(micBuffer(), captured);
+      // Command (or "pardon") arrives via TCP port 8888 → applyCommandLine()
+    } else {
+      enterIdle();
+    }
+  }
 
   // Safety reflex: a "stop" from any transport sets gStopRequested on Core 0.
   // Clear the running pose here; pressingCheck() also polls it mid-pose.
@@ -656,6 +678,7 @@ void loop() {
     else if (cmd == "shrug") runShrugPose();
     else if (cmd == "dead") runDeadPose();
     else if (cmd == "crab") runCrabPose();
+    else if (cmd == "box") runBoxPose();
   }
   
   // Serial CLI — same vocabulary as TCP (applyCommandLine handles both).
@@ -1008,36 +1031,13 @@ void handleImuReaction(ImuEvent ev) {
       exitIdle();
       break;
     case IMU_TAPPED:
-      // Ignore taps while audio is playing — speaker vibration creates jerk
-      // spikes that auto-retrigger and cut the response mid-play.
-      if (isAudioPlaying()) break;
-      dlogs("Voice: tap received");
-      stopAudio();
-      currentCommand = "";
-      setFace("excited");
-      audioActivationChirp();
-      dlogs("Voice: starting mic");
-      {
-        size_t bytes = micRecordWithVAD();
-        dlog("Voice: captured %zu bytes (%.1fs)", bytes, bytes / 32000.0f);
-        if (bytes > 0) {
-          audioGotItChirp();           // immediate "got it" feedback before slow server call
-          setFace("love");             // "thinking" face while waiting for server
-          dlog("Voice: sending %zu bytes to server", bytes);
-          if (voiceRequest(micBuffer(), bytes)) {
-            dlogs("Voice: playing response");
-            startSpeakingFace("excited");
-            playWavFromSPIFFS(VOICE_RESPONSE_PATH);
-          } else {
-            dlogs("Voice: server error");
-          }
-        } else {
-          dlogs("Voice: no speech detected");
-        }
-      }
-      // Suppress tap for 2s after pipeline — prevents speaker acoustic feedback
-      // or residual vibration from immediately re-triggering.
-      imuSuppressTap(2000);
+      if (isAudioPlaying()) { imuResetLevelTimer(); break; }
+      gLastCommandMs = millis();   // noise floor needs to re-settle after wiggle
+      currentFaceName = "";
+      setFace("love");
+      playWavFromSPIFFS("/hehe.wav");
+      while (isAudioPlaying()) { audioPump(); delay(10); }
+      runWiggleSmall();
       enterIdle();
       break;
     case IMU_FREEFALL:
@@ -1099,6 +1099,7 @@ void setCurrentCommand(const String& cmd) {
 // movement words and the Albert line-protocol primitives the Python host tools
 // emit (servo/all/neutral/hips/knees/stance/gait/face/stop).
 void applyCommandLine(const char* rawLine) {
+  gLastCommandMs = millis();   // tap gate: suppress IMU tap for 3s after any command
   // Normalize: trim + lowercase into a local buffer.
   char line[CMD_LINE_MAX];
   strncpy(line, rawLine, sizeof(line) - 1);
@@ -1119,8 +1120,17 @@ void applyCommandLine(const char* rawLine) {
 
   // --- stop / e-stop -------------------------------------------------------
   if (!strcmp(verb, "stop") || !strcmp(verb, "halt") || !strcmp(verb, "freeze")) {
+    gStopRequested = true;   // abort any mid-pose pressingCheck loop immediately
     currentCommand = "";
     gPubCmd[0] = '\0';
+    return;
+  }
+
+  // --- pardon: audio_receiver.py couldn't recognise a command --------------
+  if (!strcmp(verb, "pardon")) {
+    audioPardonChirp();
+    setFace("confused");
+    enterIdle();
     return;
   }
 
@@ -1128,7 +1138,7 @@ void applyCommandLine(const char* rawLine) {
   if (!strcmp(verb, "help") || !strcmp(verb, "?")) {
     Serial.println(F("--- movement ---"));
     Serial.println(F("forward backward left right stand rest stop"));
-    Serial.println(F("wave dance swim point pushup bow cute freaky worm shake shrug dead crab"));
+    Serial.println(F("wave dance swim point pushup bow cute freaky worm shake shrug dead crab box"));
     Serial.println(F("--- direct servo ---"));
     Serial.println(F("neutral             all servos to 90"));
     Serial.println(F("all <0-180>         all servos to one angle"));
@@ -1218,39 +1228,76 @@ void applyCommandLine(const char* rawLine) {
     }
     return;
   }
+  // Parse first token as servo id — accepts integer ("0") or name ("R1").
+  // Returns -1 if token doesn't resolve to a valid channel.
+  auto parseServoId = [](const char* tok) -> int {
+    if (!tok || !*tok) return -1;
+    if (tok[0] >= '0' && tok[0] <= '9') {
+      int id = atoi(tok);
+      return (id >= 0 && id < 8) ? id : -1;
+    }
+    return servoNameToIndex(String(tok));
+  };
+
   if (!strcmp(verb, "servo")) {
-    int id, a; if (sscanf(args, "%d %d", &id, &a) == 2 && id >= 0 && id < 8) {
-      currentCommand = ""; gPubCmd[0] = '\0';
-      a = constrain(a, 0, 180);
-      setServoAngle((uint8_t)id, a);
-      Serial.print(ServoNames[id]); Serial.print(F(" -> ")); Serial.println(a);
+    char tok[8] = {}; int a = 0;
+    if (sscanf(args, "%7s %d", tok, &a) == 2) {
+      int id = parseServoId(tok);
+      if (id >= 0) {
+        currentCommand = ""; gPubCmd[0] = '\0';
+        a = constrain(a, 0, 180);
+        setServoAngle((uint8_t)id, a);
+        Serial.print(ServoNames[id]); Serial.print(F(" -> ")); Serial.println(a);
+      } else {
+        Serial.println(F("servo: unknown id/name"));
+      }
     }
     return;
   }
   if (!strcmp(verb, "nudge")) {
-    int id, delta; if (sscanf(args, "%d %d", &id, &delta) == 2 && id >= 0 && id < 8) {
-      currentCommand = ""; gPubCmd[0] = '\0';
-      int next = constrain((int)gServoAngle[id] + delta, 0, 180);
-      setServoAngle((uint8_t)id, next);
-      Serial.print(ServoNames[id]); Serial.print(F(" -> ")); Serial.println(next);
+    char tok[8] = {}; int delta = 0;
+    if (sscanf(args, "%7s %d", tok, &delta) == 2) {
+      int id = parseServoId(tok);
+      if (id >= 0) {
+        currentCommand = ""; gPubCmd[0] = '\0';
+        int next = constrain((int)gServoAngle[id] + delta, 0, 180);
+        setServoAngle((uint8_t)id, next);
+        Serial.print(ServoNames[id]); Serial.print(F(" -> ")); Serial.println(next);
+      } else {
+        Serial.println(F("nudge: unknown id/name"));
+      }
+    } else {
+      Serial.println(F("usage: nudge <id|name> <delta>  e.g. nudge R1 10"));
     }
     return;
   }
   if (!strcmp(verb, "trim")) {
-    int id, t; if (sscanf(args, "%d %d", &id, &t) == 2 && id >= 0 && id < 8) {
-      servoTrim[id] = (int8_t)constrain(t, -45, 45);
-      setServoAngle((uint8_t)id, gServoAngle[id]);  // re-drive immediately
-      Serial.print(ServoNames[id]); Serial.print(F(" trim=")); Serial.println(servoTrim[id]);
+    char tok[8] = {}; int t = 0;
+    if (sscanf(args, "%7s %d", tok, &t) == 2) {
+      int id = parseServoId(tok);
+      if (id >= 0) {
+        servoTrim[id] = (int8_t)constrain(t, -45, 45);
+        setServoAngle((uint8_t)id, gServoAngle[id]);
+        Serial.print(ServoNames[id]); Serial.print(F(" trim=")); Serial.println(servoTrim[id]);
+      } else {
+        Serial.println(F("trim: unknown id/name"));
+      }
     }
     return;
   }
   if (!strcmp(verb, "rev")) {
-    int id; if (sscanf(args, "%d", &id) == 1 && id >= 0 && id < 8) {
-      servoRev[id] = !servoRev[id];
-      setServoAngle((uint8_t)id, gServoAngle[id]);  // re-drive with new direction
-      Serial.print(ServoNames[id]); Serial.print(F(" rev=")); Serial.println(servoRev[id] ? F("yes") : F("no"));
+    char tok[8] = {};
+    if (sscanf(args, "%7s", tok) == 1) {
+      int id = parseServoId(tok);
+      if (id >= 0) {
+        servoRev[id] = !servoRev[id];
+        setServoAngle((uint8_t)id, gServoAngle[id]);
+        Serial.print(ServoNames[id]); Serial.print(F(" rev=")); Serial.println(servoRev[id] ? F("yes") : F("no"));
+      } else {
+        Serial.println(F("rev: unknown id/name"));
+      }
     } else {
-      // no id: list all
+      // no arg: list all
       for (int i = 0; i < 8; i++) {
         Serial.print(i); Serial.print(F(" ")); Serial.print(ServoNames[i]);
         Serial.print(F(" rev=")); Serial.println(servoRev[i] ? F("yes") : F("no"));
@@ -1313,7 +1360,7 @@ void applyCommandLine(const char* rawLine) {
   static const char* kPoses[] = {
     "forward", "backward", "left", "right", "rest", "stand", "wave", "dance",
     "swim", "point", "pushup", "bow", "cute", "freaky", "worm", "shake",
-    "shrug", "dead", "crab"
+    "shrug", "dead", "crab", "box"
   };
   for (size_t i = 0; i < sizeof(kPoses) / sizeof(kPoses[0]); i++) {
     if (!strcmp(verb, kPoses[i])) { setCurrentCommand(verb); return; }
