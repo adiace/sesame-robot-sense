@@ -20,8 +20,8 @@ The result is the same expressive quadruped with a new spine: more headroom for 
 | **Audio** | None | MAX98357A I2S amp on AI Pin PCB |
 | **IMU** | None | MPU-6050 (I2C, pin-reserved) |
 | **Camera** | None | OV2640 flex-cable mount (pin-reserved) |
-| **Control transports** | Browser AP / HTTP only | Browser AP + TCP line-protocol (port 8888) + USB serial |
-| **Python host stack** | Sesame Companion App | Albert-compatible: `robot_link.py`, `robot_gui.py`, `voice_control.py` |
+| **Control transports** | Browser AP / HTTP only | Browser AP + TCP (port 8888) + USB serial — same vocabulary on all three |
+| **Companion app** | [sesame-companion-app](https://github.com/dorianborian/sesame-companion-app) | [sesame-companion-app-sense](https://github.com/adiace/sesame-companion-app-sense) — fork with local LLM, robot voice pipeline, and raw command bypass |
 | **Calibration** | Compile-time subtrim | Runtime `trim` / `rev` / `nudge` — saved to NVS flash, no reflash needed |
 | **Architecture** | Single-core blocking loop | Dual-core: Core 0 owns WiFi/networking, Core 1 owns servos/OLED/IMU |
 
@@ -42,7 +42,7 @@ All original Sesame movement sequences, OLED faces, and web UI are preserved unc
 
 **Three control surfaces — all live at the same time**
 1. **Browser** — original Sesame web UI on port 80, unchanged
-2. **TCP line protocol** on port 8888 — drives `robot_link.py`, `robot_gui.py`, `voice_control.py` with zero changes to those scripts
+2. **TCP on port 8888** — newline-framed text commands; used by the companion app and `robot_link.py`
 3. **USB serial** — identical command vocabulary to TCP; use the Arduino Serial Monitor for bring-up and calibration
 
 **Calibration workflow**
@@ -53,10 +53,20 @@ All original Sesame movement sequences, OLED faces, and web UI are preserved unc
 - Core 1: PCA9685, OLED, IMU, servo logic, serial CLI
 - FreeRTOS queue between cores; one atomic stop flag for instant mid-pose interrupt
 
-**Sensor headroom (wired, not yet coded)**
-- MPU-6050 IMU on I2C 0x68
-- OV2640 camera on flex connector
-- MAX98357A I2S audio amp — pins locked on the AI Pin PCB
+**IMU reactions**
+- MPU-6050 on I2C 0x68 — tap/pickup/flip/freefall detection; triggers face changes and movement responses
+- Tap uses a 2-second peak window to reject motion noise before enabling tap recognition
+
+**Audio**
+- MAX98357A I2S amp plays WAV sound effects from SPIFFS and TTS voice responses from PSRAM
+- Voice responses stream directly from PSRAM — no SPIFFS write, no size limit
+
+**On-device wake word**
+- PDM mic on the XIAO Sense module feeds ESP-SR WakeNet continuously ("Hi ESP")
+- On trigger: records 4 s, streams to companion app, plays WAV response back on speaker
+
+**Camera (pin-reserved, not yet coded)**
+- OV2640 on the XIAO Sense flex connector — pins reserved, no driver yet
 
 ---
 
@@ -110,6 +120,29 @@ With USB still connected, use the serial CLI to center all horns and dial in tri
 
 ---
 
+## Companion app
+
+**[sesame-companion-app-sense](https://github.com/adiace/sesame-companion-app-sense)** is the desktop companion for this robot. It is a fork of [dorianborian/sesame-companion-app](https://github.com/dorianborian/sesame-companion-app) with the following differences:
+
+| | sesame-companion-app (original) | sesame-companion-app-sense (this fork) |
+|---|---|---|
+| **LLM** | Gemini cloud API | Local Ollama (llama3.2 or any model) — no cloud required |
+| **TTS (laptop)** | pyttsx3 | macOS `say` — avoids NSSpeechSynthesizer crash on AppKit thread |
+| **Robot voice** | Not supported | Full pipeline: robot mic → Whisper STT → Ollama → `say` TTS → WAV back to robot speaker |
+| **Command transport** | HTTP `/api/command` | TCP port 8888 (persistent, ~5ms latency) |
+| **Raw command bypass** | None | `/command` prefix in chat skips LLM and sends directly to robot |
+| **LLM reliability** | None | `_normalize_llm()` fallbacks + `_infer_command()` keyword scan when LLM misses a command |
+
+Clone it separately and follow its README:
+
+```bash
+git clone https://github.com/adiace/sesame-companion-app-sense.git
+cd sesame-companion-app-sense
+./run.sh
+```
+
+---
+
 ## Documentation
 
 | Document | Contents |
@@ -119,11 +152,10 @@ With USB still connected, use the serial CLI to center all horns and dial in tri
 | [Setup & Calibration](docs/calibration.md) | Flashing, WiFi config, bring-up sequence, trim/rev/save workflow |
 | [Command Reference](docs/commands.md) | Full vocabulary — all transports, with examples |
 | [Software guide](docs/software.md) | Installation, tool usage, voice setup, moves.json, troubleshooting |
-| [Software](software/README.md) | Python host tools: GUI, CLI, voice control, moves library |
 
 ---
 
 ## Credits
 
 Original Sesame Robot by [Dorian Todd](https://www.doriantodd.com/) — [`dorianborian/sesame-robot`](https://github.com/dorianborian/sesame-robot).
-This fork adapts the firmware for the XIAO ESP32-S3 Sense platform and adds the Albert-protocol TCP stack.
+This fork adapts the firmware for the XIAO ESP32-S3 Sense platform and extends it with dual-core networking, IMU reactions, audio, and an on-device voice pipeline.
