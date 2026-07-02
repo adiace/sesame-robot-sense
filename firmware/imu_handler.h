@@ -10,6 +10,9 @@
 // Wire.endTransmission(true) throughout — ESP32-S3 repeated-start is buggy.
 // imuEmit() logs JSON to Serial and pushes to imuEventQueue for TCP streaming.
 
+// Set 1 to enable verbose jerk / tap-rejection diagnostic logs (floods serial).
+#define IMU_DEBUG 0
+
 // ── MPU register addresses ──────────────────────────────────────────────────
 #define MPU_REG_SMPLRT_DIV    0x19
 #define MPU_REG_CONFIG        0x1A
@@ -331,8 +334,10 @@ void imuPoll() {
     tapPending = false;
     bool tiltOk = (fabsf(cfPitch) < 25.0f && fabsf(cfRoll) < 25.0f);
     bool confirmOk = tapPendingNoiseOk;  // use locked value — history now includes tap spike
+#if IMU_DEBUG
     dlog("IMU: tap confirm jerk=%.1f peak2s=%.1f thresh=%.1f residual=%.2f needsLevel=%d noiseOk=%d",
          jerk, tapPeak2s, tapThresh, pickupResidual, (int)tapNeedsLevel, (int)confirmOk);
+#endif
     if (!tapNeedsLevel && tiltOk && confirmOk
         && fabsf(pickupResidual) < 0.5f && flipRate < IMU_TAP_RATE_MAX) {
       imuEmit(IMU_TAPPED, tapPendingMagG, tapPendingP, tapPendingR);
@@ -340,6 +345,7 @@ void imuPoll() {
       tapNeedsLevel = true;
       goto check_level;
     }
+#if IMU_DEBUG
     if (!confirmOk)
       dlog("IMU: tap rejected (peak2s was %.1f >= %.1f or window not full — not quiet yet)", tapPeak2s, (float)IMU_TAP_PEAK_MAX);
     else if (tapNeedsLevel)
@@ -348,12 +354,15 @@ void imuPoll() {
       dlog("IMU: tap rejected (tilt p=%.1f r=%.1f)", cfPitch, cfRoll);
     else
       dlog("IMU: tap rejected (|residual|=%.2f flipRate=%.0f)", fabsf(pickupResidual), flipRate);
+#endif
   }
+#if IMU_DEBUG
   // Diagnostic: log every qualifying jerk so we can tune thresholds
   if (fabsf(jerk) > 15.0f && now > tapLockoutEnd)
     dlog("IMU: jerk=%.1f peak2s=%.1f thresh=%.1f %s",
          jerk, tapPeak2s, tapThresh,
          (jerk > tapThresh && noiseOk) ? "*** TAP PENDING ***" : "(blocked)");
+#endif
 
   if (jerk > tapThresh && noiseOk && flipRate < IMU_TAP_RATE_MAX && now > tapLockoutEnd) {
     tapLockoutEnd        = now + IMU_TAP_LOCKOUT_MS;
