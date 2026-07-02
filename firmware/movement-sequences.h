@@ -459,8 +459,8 @@ inline void runWiggleSmall() {
   runStandPose(1);
 }
 
-// Boxing stance: hips pulled ~30° toward neutral (body shifts back),
-// knees bent ~40° so the robot drops low and sits wide edge-to-edge.
+// Boxing stance: hips pulled ~13° toward neutral (body shifts back),
+// knees bent ~30° so the robot is in a raised guard — wide but taller.
 // Stand reference: hips R1=135/R2=45/L1=45/L2=135, knees R4=0/R3=180/L3=0/L4=180
 inline void runBoxPose() {
   Serial.println(F("BOX"));
@@ -469,10 +469,10 @@ inline void runBoxPose() {
   setServoAngle(R2,  32);  // rear right hip:  13° inward from stand (45)
   setServoAngle(L1,  32);  // front left hip:  mirror
   setServoAngle(L2, 148);  // rear left hip:   mirror
-  setServoAngle(R4,  47);  // right front knee: bent 47° down (lower than stand=0)
-  setServoAngle(R3, 133);  // right rear knee:  bent 47° down (lower than stand=180)
-  setServoAngle(L3,  47);  // left front knee:  bent 47° down
-  setServoAngle(L4, 133);  // left rear knee:   bent 47° down
+  setServoAngle(R4,  30);  // right front knee: bent 30° down (lower than stand=0)
+  setServoAngle(R3, 150);  // right rear knee:  bent 30° down (lower than stand=180)
+  setServoAngle(L3,  30);  // left front knee:  bent 30° down
+  setServoAngle(L4, 150);  // left rear knee:   bent 30° down
   enterIdle();
   if (currentCommand == "box") currentCommand = "";
 }
