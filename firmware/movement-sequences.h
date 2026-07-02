@@ -460,7 +460,7 @@ inline void runWiggleSmall() {
 }
 
 // Boxing stance: hips pulled ~13° toward neutral (body shifts back),
-// knees bent ~40° — slightly taller than the original 47° crouch.
+// knees bent 35° — slightly taller than the original 47° crouch.
 // Stand reference: hips R1=135/R2=45/L1=45/L2=135, knees R4=0/R3=180/L3=0/L4=180
 inline void runBoxPose() {
   Serial.println(F("BOX"));
@@ -469,10 +469,10 @@ inline void runBoxPose() {
   setServoAngle(R2,  32);  // rear right hip:  13° inward from stand (45)
   setServoAngle(L1,  32);  // front left hip:  mirror
   setServoAngle(L2, 148);  // rear left hip:   mirror
-  setServoAngle(R4,  40);  // right front knee: bent 40° down (lower than stand=0)
-  setServoAngle(R3, 140);  // right rear knee:  bent 40° down (lower than stand=180)
-  setServoAngle(L3,  40);  // left front knee:  bent 40° down
-  setServoAngle(L4, 140);  // left rear knee:   bent 40° down
+  setServoAngle(R4,  35);  // right front knee: bent 35° down (lower than stand=0)
+  setServoAngle(R3, 145);  // right rear knee:  bent 35° down (lower than stand=180)
+  setServoAngle(L3,  35);  // left front knee:  bent 35° down
+  setServoAngle(L4, 145);  // left rear knee:   bent 35° down
   enterIdle();
   if (currentCommand == "box") currentCommand = "";
 }
