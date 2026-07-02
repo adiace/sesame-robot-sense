@@ -1357,8 +1357,9 @@ void applyCommandLine(const char* rawLine) {
   // wake:  PCA9685 back on → stand pose
   if (!strcmp(verb, "sleep")) {
     runRestPose();
-    delay(500);
+    delay(1000);     // give loaded servos time to reach 90° before oscillator cuts
     pwm.sleep();
+    exitIdle();      // stop idle blink loop from overriding the sleepy face
     setFace("sleepy");
     currentCommand = "sleep";
     strncpy(gPubCmd, "sleep", sizeof(gPubCmd) - 1);
