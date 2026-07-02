@@ -57,6 +57,11 @@ All original Sesame movement sequences, OLED faces, and web UI are preserved unc
 - MPU-6050 on I2C 0x68 — tap/pickup/flip/freefall detection; triggers face changes and movement responses
 - Tap uses a 2-second peak window to reject motion noise before enabling tap recognition
 
+**Motor protection**
+- `sleep` command: rest pose → PCA9685 oscillator off — all servo outputs go unpowered (no wear, no heat while idle)
+- `wake` command: PCA9685 back on → stand pose; ready in ~10 ms
+- The companion app sends `sleep` automatically after 5 min of idle and `wake` before any subsequent command
+
 **Audio**
 - MAX98357A I2S amp plays WAV sound effects from SPIFFS and TTS voice responses from PSRAM
 - Voice responses stream directly from PSRAM — no SPIFFS write, no size limit
@@ -131,7 +136,10 @@ With USB still connected, use the serial CLI to center all horns and dial in tri
 | **Robot voice** | Not supported | Full pipeline: robot mic → Whisper STT → Ollama → `say` TTS → WAV back to robot speaker |
 | **Command transport** | HTTP `/api/command` | TCP port 8888 (persistent, ~5ms latency) |
 | **Raw command bypass** | None | `/command` prefix in chat skips LLM and sends directly to robot |
-| **LLM reliability** | None | `_normalize_llm()` fallbacks + `_infer_command()` keyword scan when LLM misses a command |
+| **LLM reliability** | None | Temperature 0.4, 4-exchange history, `_normalize_llm()` fallbacks + `_infer_command()` keyword scan |
+| **Idle / motor protection** | None | 3-min idle phrase, 5-min `sleep` command to robot; auto-wake on interaction or IMU pickup |
+| **Persistent memory** | None | Response cache, child profile (name/favourites), session summaries — all in `~/.sesame/` |
+| **Kids content** | None | Pre-LLM layer: instant jokes, animal sounds, Q&A — no LLM call needed (`KIDS_MODE=true`) |
 
 Clone it separately and follow its README:
 

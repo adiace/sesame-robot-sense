@@ -41,6 +41,17 @@ One-shot poses — execute once then return to stand.
 
 ---
 
+## Power / idle
+
+| Command | Description |
+|---|---|
+| `sleep` | Rest pose, then cut PCA9685 oscillator — servos go unpowered (no wear while idle) |
+| `wake` | Re-enable PCA9685, stand pose — robot is ready again |
+
+Send `sleep` after periods of inactivity to protect servo gears. The companion app does this automatically after 5 minutes of idle. `wake` is sent automatically before any subsequent command.
+
+---
+
 ## Direct servo control
 
 These commands stop any running pose before moving servos.
