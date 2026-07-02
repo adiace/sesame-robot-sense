@@ -1352,6 +1352,28 @@ void applyCommandLine(const char* rawLine) {
     return;
   }
 
+  // --- sleep / wake (motor protection) ------------------------------------
+  // sleep: rest pose → PCA9685 oscillator off → servos unpowered (no wear)
+  // wake:  PCA9685 back on → stand pose
+  if (!strcmp(verb, "sleep")) {
+    runRestPose();
+    delay(500);
+    pwm.sleep();
+    setFace("sleepy");
+    currentCommand = "sleep";
+    strncpy(gPubCmd, "sleep", sizeof(gPubCmd) - 1);
+    return;
+  }
+  if (!strcmp(verb, "wake")) {
+    pwm.wakeup();
+    delay(10);   // PCA9685 needs ~500µs after wakeup before PWM is stable
+    runStandPose(1);
+    setFace("happy");
+    currentCommand = "";
+    gPubCmd[0] = '\0';
+    return;
+  }
+
   // --- aliases -------------------------------------------------------------
   if (!strcmp(verb, "walk")) { setCurrentCommand("forward"); return; }
   if (!strcmp(verb, "back")) { setCurrentCommand("backward"); return; }
