@@ -1,1 +1,6 @@
 .vscode/launch.json
+.DS_Store
+**/.DS_Store
+build/
+**/build/
+firmware/wifi_credentials.h

@@ -9,9 +9,9 @@ Servo servos[8];
 
 // Motor Pin Mapping
 // Index: 0  1  2  3  4   5   6   7
-const int servoPins[8] = {1, 2, 4, 6, 8, 10, 13, 14};
+//const int servoPins[8] = {1, 2, 4, 6, 8, 10, 13, 14};
 // Distro board V3 pins: (uncomment if needed)
-// const int servoPins[8] = {4, 5, 6, 7, 10, 11, 12, 13};
+ const int servoPins[8] = {4, 5, 6, 7, 10, 11, 12, 13};
 // Distro board V2 pins: (uncomment if needed)
 // const int servoPins[8] = {4, 5, 6, 7, 15, 16, 17, 18};
 // Distro board V1 pins: (uncomment if needed)

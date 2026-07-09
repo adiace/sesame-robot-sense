@@ -325,6 +325,26 @@ const char index_html[] PROGMEM = R"rawliteral(
       color: #fff; 
     }
     
+    /* Servo Trim */
+    .trim-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #333;
+      font-size: 13px;
+    }
+    .trim-row:last-child { border-bottom: none; }
+    .trim-name { width: 36px; color: var(--content-color); font-weight: 600; }
+    .trim-val { width: 34px; text-align: center; color: #fff; }
+    .trim-btns { display: flex; gap: 4px; }
+    .trim-btns button {
+      padding: 5px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      min-width: 32px;
+    }
+
     /* Desktop Layout */
     @media (min-width: 1024px) {
       body {
@@ -432,15 +452,9 @@ const char index_html[] PROGMEM = R"rawliteral(
       </div>
 
       <div class="settings-section">
-        <h4>Motor Settings</h4>
-        <label>Motor Current Delay (ms):</label>
-        <input type="number" id="motorCurrentDelay" min="0" max="500" step="1">
-        <label>Motor Speed:</label>
-        <select id="motorSpeed">
-          <option value="slow">Slow</option>
-          <option value="medium" selected>Medium</option>
-          <option value="fast">Fast</option>
-        </select>
+        <h4>Motor Speed</h4>
+        <label>Motor Delay (ms between servo writes, 5=fastest 100=slowest):</label>
+        <input type="number" id="motorDelay" min="5" max="100" step="1">
       </div>
 
       <div class="settings-section">
@@ -458,6 +472,11 @@ const char index_html[] PROGMEM = R"rawliteral(
           <option value="custom">Custom</option>
         </select>
         <input type="color" id="customColor" value="#ff8c42" style="margin-top: 10px; display: none;">
+      </div>
+
+      <div class="settings-section">
+        <h4>Servo Trim</h4>
+        <div id="subtrimList"></div>
       </div>
 
       <button class="btn-settings" style="width: 100%; margin-top: 20px;" onclick="openMotorControl()">Manual Motor Control</button>
@@ -627,11 +646,11 @@ function updateMotor(motorNum, value) {
 }
 
 function openSettings() {
+  loadSubtrims();
   fetch('/getSettings').then(r => r.json()).then(data => {
     document.getElementById('frameDelay').value = data.frameDelay || 100;
     document.getElementById('walkCycles').value = data.walkCycles || 10;
-    document.getElementById('motorCurrentDelay').value = data.motorCurrentDelay || 20;
-    document.getElementById('motorSpeed').value = data.motorSpeed || 'medium';
+    document.getElementById('motorDelay').value = data.motorDelay || 20;
     
     // Load theme settings
     const savedColor = localStorage.getItem('themeColor') || '#ff8c42';
@@ -659,7 +678,7 @@ function openSettings() {
     // Fallback if settings endpoint doesn't exist yet
     document.getElementById('frameDelay').value = 100;
     document.getElementById('walkCycles').value = 10;
-    document.getElementById('motorCurrentDelay').value = 20;
+    document.getElementById('motorDelay').value = 20;
     
     const savedColor = localStorage.getItem('themeColor') || '#ff8c42';
     document.getElementById('themeColor').value = savedColor;
@@ -688,6 +707,13 @@ function closeSettings() {
 }
 
 function openMotorControl() {
+  // Clear any pose lock so sliders work immediately
+  motorsLocked = false;
+  document.getElementById('lockIndicator').classList.remove('active');
+  for (let i = 1; i <= 8; i++) {
+    const slider = document.getElementById('motor' + i);
+    if (slider) slider.disabled = false;
+  }
   document.getElementById('motorControlPanel').style.display = 'block';
 }
 
@@ -698,8 +724,7 @@ function closeMotorControl() {
 function saveSettings() {
   const fd = document.getElementById('frameDelay').value;
   const wc = document.getElementById('walkCycles').value;
-  const mcd = document.getElementById('motorCurrentDelay').value;
-  const ms = document.getElementById('motorSpeed').value;
+  const md = document.getElementById('motorDelay').value;
   
   // Save theme color
   const colorSelect = document.getElementById('themeColor');
@@ -708,9 +733,46 @@ function saveSettings() {
   localStorage.setItem('themeColor', themeColor);
   applyTheme(themeColor);
   
-  fetch(`/setSettings?frameDelay=${fd}&walkCycles=${wc}&motorCurrentDelay=${mcd}&motorSpeed=${ms}`)
+  fetch(`/setSettings?frameDelay=${fd}&walkCycles=${wc}&motorDelay=${md}`)
     .then(() => closeSettings())
     .catch(() => closeSettings());
+}
+
+// ── Servo Trim ────────────────────────────────────────────────────────────
+const SERVO_NAMES = ['R1','R2','L1','L2','R4','R3','L3','L4'];
+let trimValues = [0,0,0,0,0,0,0,0];
+
+function loadSubtrims() {
+  fetch('/subtrim')
+    .then(r => r.json())
+    .then(data => {
+      if (data.trims && data.trims.length === 8) trimValues = data.trims;
+      renderTrimUI();
+    }).catch(() => renderTrimUI());
+}
+
+function renderTrimUI() {
+  const container = document.getElementById('subtrimList');
+  if (!container) return;
+  container.innerHTML = SERVO_NAMES.map((name, i) =>
+    `<div class="trim-row">
+      <span class="trim-name">${name}</span>
+      <span class="trim-val" id="tv${i}">${trimValues[i]}</span>
+      <div class="trim-btns">
+        <button onclick="setTrim(${i},${trimValues[i]}-5)">-5</button>
+        <button onclick="setTrim(${i},${trimValues[i]}-1)">-1</button>
+        <button onclick="setTrim(${i},${trimValues[i]}+1)">+1</button>
+        <button onclick="setTrim(${i},${trimValues[i]}+5)">+5</button>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function setTrim(ch, val) {
+  val = Math.max(-90, Math.min(90, val));
+  fetch('/subtrim?motor=' + ch + '&value=' + val)
+    .then(() => { trimValues[ch] = val; renderTrimUI(); })
+    .catch(console.log);
 }
 
 let activeGamepadIndex = null;
