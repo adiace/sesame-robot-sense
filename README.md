@@ -83,7 +83,18 @@ The rest of the robot (servos on GPIO 4,5,6,7,10,11,12,13 · OLED on I2C SDA=GPI
 SCL=GPIO 9) is wired exactly as the V3 board build in the original repo. Full pin
 reference: [docs/wiring.md](docs/wiring.md).
 
-<!-- PHOTOS of mic and amp installed in the robot body go here (docs/images/) -->
+### Installed in the robot
+
+Top-down with the shell open — Distro Board V3 center, MAX98357A amp (purple board,
+bottom), speaker at the right, mic wiring running to the front cover:
+
+![Voice install overview](docs/images/voice-install-overview.jpg)
+
+Inside the top cover — speaker mounted behind the printed grille (top left), the amp
+beside its mount with the twisted red/black pair to the speaker, and the INMP441 mic
+at the left edge:
+
+![Amp and speaker in the top cover](docs/images/voice-install-amp-speaker.jpg)
 
 ## Getting started
 
