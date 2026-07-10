@@ -19,6 +19,19 @@ static const esp_wn_iface_t* _wn_iface  = nullptr;
 static model_iface_data_t*   _wn_data   = nullptr;
 static int                   _wn_chunk  = 0;
 
+// Diagnostics — exposed via HTTP /api/status so wake health is checkable
+// without USB (wifi_log only captures esp_log, not Serial prints).
+bool     gWakeReady    = false;   // model loaded and detector created
+uint32_t gWakeChunksFed = 0;      // detect() calls — proves mic audio is flowing
+float    gWakeMicRms   = 0;       // live mic level (gained) — ~0 means dead mic wiring
+uint32_t gWakeDetections = 0;     // lifetime "Hi ESP" hits since boot
+
+// Rolling ambient noise floor, maintained by the wake feed loop. Lets
+// micRecord() skip its own ~180ms calibration pass — that window consumed and
+// discarded audio, chopping the first word off prompt speakers ("is it
+// Monday?" → "Even Monday").
+float gAmbientRms = 600.0f;
+
 // Accumulation buffer — WakeNet may want a different chunk size than our mic read size
 static int16_t* _wn_buf     = nullptr;
 static int      _wn_buf_pos = 0;
@@ -54,7 +67,10 @@ bool wakewordSetup() {
         return false;
     }
 
-    _wn_data = _wn_iface->create(model_name, DET_MODE_90);
+    // DET_MODE_95: more permissive matching. Needed because the body enclosure
+    // muffles high frequencies — DET_MODE_90 missed "Hi ESP" even with healthy
+    // mic levels (verified via /api/status micRms). Watch for false wakes.
+    _wn_data = _wn_iface->create(model_name, DET_MODE_95);
     if (!_wn_data) {
         Serial.println("[Wake] Failed to create model instance");
         return false;
@@ -70,6 +86,7 @@ bool wakewordSetup() {
         return false;
     }
     _wn_buf_pos = 0;
+    gWakeReady  = true;
     return true;
 }
 
@@ -88,9 +105,11 @@ bool wakewordFeed(const int16_t* samples, int n) {
 
         if (_wn_buf_pos == _wn_chunk) {
             _wn_buf_pos = 0;
+            gWakeChunksFed++;
             wakenet_state_t state = (wakenet_state_t)_wn_iface->detect(_wn_data, _wn_buf);
             if (state == WAKENET_DETECTED) {
-                Serial.println("[Wake] Hi ESP detected!");
+                gWakeDetections++;
+                dlog("[Wake] Hi ESP detected!");
                 return true;
             }
         }

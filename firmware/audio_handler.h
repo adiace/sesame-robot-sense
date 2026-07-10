@@ -73,15 +73,22 @@ bool audioSetup() {
     return true;
 }
 
-// Blocking sine-wave beep on the speaker.
-void playBeep(float freq, int ms) {
+// Blocking sine-wave beep on the speaker. Optional amplitude override —
+// the wake acknowledgment uses a quiet beep so the enclosed speaker doesn't
+// couple into the mic and contaminate the recording that follows.
+void playBeep(float freq, int ms, int amplitude = 10000) {
     if (!_aud_tx) return;
     const int n = min((int)(AUDIO_SAMPLE_RATE * ms / 1000), AUDIO_SAMPLE_RATE / 5);
     static int16_t buf[AUDIO_SAMPLE_RATE / 5 * 2];
     float phase = 0;
     for (int i = 0; i < n; i++) {
         phase += 2.0f * M_PI * freq / AUDIO_SAMPLE_RATE;
-        int16_t s = (int16_t)(10000 * sinf(phase));
+        // 5ms fade-in/out — a hard-edged sine rings the enclosure much longer
+        float env = 1.0f;
+        int fade = AUDIO_SAMPLE_RATE / 200;
+        if (i < fade)          env = (float)i / fade;
+        else if (i > n - fade) env = (float)(n - i) / fade;
+        int16_t s = (int16_t)(amplitude * env * sinf(phase));
         buf[i*2] = s; buf[i*2+1] = s;
     }
     size_t written = 0;
@@ -187,10 +194,12 @@ void playWavFromClient(WiFiClient& client, uint32_t wavLen) {
         }
     }
 
-    // Stream remaining audio from TCP → I2S in 512-byte mono chunks
+    // Stream remaining audio from TCP → I2S in 512-byte mono chunks.
+    // 30s cap: loop() is blocked while this streams (HTTP/TCP/wake all dead),
+    // so a stalled connection must not wedge the robot for long.
     static uint8_t mono[512];
     static int16_t stereo2[512];
-    deadline = millis() + 60000;
+    deadline = millis() + 30000;
     while (remaining >= 2 && millis() < deadline) {
         uint32_t want = min(remaining, (uint32_t)sizeof(mono));
         // align to even bytes
@@ -254,21 +263,20 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
         return *nSamples > 0 ? sqrtf((float)(sum / *nSamples)) : 0.0f;
     };
 
-    // Calibrate noise floor (first 6 chunks ≈ 360ms)
-    static int16_t monoBuf[CHUNK_PAIRS];
-    float noiseSum = 0; int noiseCnt = 0;
-    while (noiseCnt < 6) {
-        int n; noiseSum += readChunk(monoBuf, &n); noiseCnt++;
-    }
+    // Noise floor comes from the wake feed's rolling ambient EMA — no local
+    // calibration pass. The old ~180ms calibration consumed and discarded
+    // audio, chopping the first word off prompt speakers.
     // VAD constants tuned at unity gain; scale linearly with MIC_GAIN so the
     // behavior is identical regardless of the gain setting.
     // Multiplier 1.5× (was 2.0×): the enclosed mic attenuates speech more than
     // the (mostly electrical) noise floor, so short quiet words like "stand"
     // never crossed 2× and recordings ran to the full no-speech cap.
-    float noiseFloor  = noiseSum / noiseCnt;
+    static int16_t monoBuf[CHUNK_PAIRS];
+    extern float gAmbientRms;
+    float noiseFloor  = gAmbientRms;
     float speechThresh = constrain(noiseFloor * 1.5f + 150.0f * MIC_GAIN,
                                    400.0f * MIC_GAIN, 2000.0f * MIC_GAIN);
-    Serial.printf("[Mic] noise=%.0f thresh=%.0f\n", noiseFloor, speechThresh);
+    dlog("[Mic] noise=%.0f thresh=%.0f", noiseFloor, speechThresh);
 
     size_t captured   = 0;
     int    silenceRun = 0;
@@ -307,7 +315,7 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
             else if (++silenceRun >= SILENCE_HOLD) break;
         }
     }
-    Serial.printf("[Mic] recorded %zu bytes (%.1fs) peak=%.0f thresh=%.0f%s\n",
+    dlog("[Mic] recorded %zu bytes (%.1fs) peak=%.0f thresh=%.0f%s",
                   captured, captured / 32000.0f, peakRms, speechThresh,
                   speechSeen ? "" : " (no speech detected)");
     return speechSeen ? captured : 0;

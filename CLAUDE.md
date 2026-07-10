@@ -93,6 +93,14 @@ All three set the same `currentCommand` dispatched in `loop()`:
 - **HTTP** — captive portal `/cmd`, `/api/command`, `/subtrim`, `/getSettings`, `/setSettings`
 - **Serial CLI** — `rn wf`, `subtrim`, etc.
 
+**TCP commands are bounded** (voice must return to wake listening — the wake feed is
+OFF while a command runs): gaits take an optional count (`walk 5`, `left 2` — runs N
+cycles via gStepLimit then stands and clears) and default to 8 steps / 4 turn cycles
+when uncounted; tricks (`dance`…) run once (gOneShotPose). Aliases: walk→forward,
+back→backward. HTTP portal press-and-hold stays continuous. Chained voice commands
+("walk 5 steps then turn left") are sequenced by the companion app (`_run_chain`),
+which polls /api/status until idle between steps.
+
 Special commands (mirror sesame-robot-sense):
 - `sleep` — rest pose, 1s settle, `detachServos()` (unpowered, no wear), sleepy face
 - `wake` — re-attach, stand, happy face
@@ -112,13 +120,35 @@ Settings (`frameDelay`, `walkCycles`, `motorDelay`, `faceFps`) persist to NVS on
 
 ## Debugging
 
-- `wifi_log.h` mirrors all Serial output to TCP port 8890: `nc <robot-ip> 8890`
-- OTA: ArduinoOTA, password "sesame", hostname sesame-robot.local
-- `[Mic] recorded ... peak=X thresh=Y` after each interaction: if peak << thresh the user
-  is too quiet/far; if noise calibration reads high right after wake, the beep tail is
-  still audible when recording starts (extend the 200ms settle).
+- **`dlog()` → TCP port 8890** (`nc sesame-robot.local 8890`) with a 4KB replay ring —
+  you see recent history on connect. Plain `Serial.print` does NOT reach 8890
+  (esp_log_set_vprintf only hooks IDF logs); use dlog for anything WiFi-visible.
+- **`/api/status` voice diagnostics** (no USB needed): `wakeReady` (model+PSRAM ok),
+  `wakeChunksFed` (climbs 32/s when listening — 0 or stalled = feed dead/gated),
+  `micRms` (~1000-2000 gained ambient; ~0 = mic wiring), `wakeDetections`.
+- **A wedged robot** (HTTP dead, ping alive): loop() is blocked in a voice session or
+  endless pose. `printf 'stop\n' | nc <ip> 8888` unsticks it. Waits are bounded
+  (15s WAV wait, 30s stream) so it self-recovers.
+- OTA from CLI: compile with `--output-dir`, then
+  `python3 espota.py -i <ip> -p 3232 --auth=sesame -f firmware.ino.bin`
 - mDNS collision warning: sesame-robot-sense also broadcasts `sesame-robot.local` — don't
-  run both robots at once, or change one hostname.
+  run both robots at once, or change one hostname. macOS Python resolves .local flakily;
+  the companion app caches the robot IP at ~/.sesame/robot_ip and seeds it from
+  incoming voice connections.
+
+## Voice tuning state (what's been tried)
+
+- Wake: DET_MODE_95 (90 missed through the enclosure), MIC_GAIN 4, backlog-draining
+  feed. Beep: 1500Hz/70ms/amp 9000 with 5ms fades (full volume rang the enclosure and
+  poisoned the VAD; amp 3000 was inaudible outside the body).
+- VAD noise floor = rolling ambient EMA from the wake feed (a local calibration pass
+  ate ~180ms of audio and chopped first words: "is it Monday" → "Even Monday").
+- STT (companion app): Whisper small + beam search + peak-normalize + pre-emphasis
+  (+6dB/oct — measured clip had 90% energy <1kHz, 3% >4kHz; consonants gone) +
+  phrase-biased initial_prompt + difflib fuzzy rescue on 1-2 word utterances.
+- **Known limit**: the mic port hole low-passes speech; "stand" arrives as "and".
+  Pending physical fix: seal INMP441 port flush against the case hole. Verify with
+  the spectrum: `~/.sesame/last_heard.wav` — 4-8kHz band should rise well above 3%.
 
 ## Compile from CLI
 

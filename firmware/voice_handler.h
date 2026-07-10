@@ -17,7 +17,7 @@ static bool _voiceSendAll(WiFiClient& c, const uint8_t* buf, size_t len) {
     uint32_t deadline = millis() + 25000;
     while (sent < len) {
         if (millis() > deadline) {
-            Serial.printf("[Voice] send timeout (%zu/%zu)\n", sent, len);
+            dlog("[Voice] send timeout (%zu/%zu)", sent, len);
             return false;
         }
         size_t n = c.write(buf + sent, min(len - sent, (size_t)1024));
@@ -42,10 +42,10 @@ static bool _voiceRecvAll(WiFiClient& c, uint8_t* buf, size_t len) {
 // playWavFromMemory() is defined in audio_handler.h (included before this file).
 bool voiceStreamToServer(const uint8_t* pcm, size_t len) {
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[Voice] no WiFi");
+        dlog("[Voice] no WiFi");
         return false;
     }
-    Serial.printf("[Voice] STA IP=%s  sending %zu bytes (%.1fs) → %s:%d\n",
+    dlog("[Voice] STA IP=%s  sending %zu bytes (%.1fs) → %s:%d",
                   WiFi.localIP().toString().c_str(),
                   len, len / 32000.0f, VOICE_SERVER_IP, AUDIO_RX_PORT);
 
@@ -53,14 +53,14 @@ bool voiceStreamToServer(const uint8_t* pcm, size_t len) {
         // In AP+STA dual mode the ESP32 default netif may be the AP interface.
         // Force STA so outbound TCP goes out the right interface.
         esp_netif_t* sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-        Serial.printf("[Voice] sta netif=%p\n", (void*)sta);
+        dlog("[Voice] sta netif=%p", (void*)sta);
         if (sta) esp_netif_set_default_netif(sta);
 
         WiFiClient client;
         client.setTimeout(25);
 
         if (!client.connect(VOICE_SERVER_IP, AUDIO_RX_PORT)) {
-            Serial.printf("[Voice] connect failed (attempt %d)\n", attempt);
+            dlog("[Voice] connect failed (attempt %d)", attempt);
             if (attempt < 3) delay(500);
             continue;
         }
@@ -72,24 +72,26 @@ bool voiceStreamToServer(const uint8_t* pcm, size_t len) {
         };
         client.write(hdr, 4);
         if (!_voiceSendAll(client, pcm, len)) {
-            Serial.printf("[Voice] PCM send failed (attempt %d)\n", attempt);
+            dlog("[Voice] PCM send failed (attempt %d)", attempt);
             client.stop();
             if (attempt < 3) delay(500);
             continue;
         }
-        Serial.printf("[Voice] %zu bytes sent — waiting for WAV...\n", len);
+        dlog("[Voice] %zu bytes sent — waiting for WAV...", len);
 
-        // Wait up to 40s for WAV length header
-        uint32_t deadline = millis() + 40000;
+        // Wait up to 15s for WAV length header (server replies in 1-3s warm,
+        // ~9s on first request; a longer wait just wedges loop() — HTTP, TCP
+        // and wake are all dead while this runs)
+        uint32_t deadline = millis() + 15000;
         while (client.available() < 4 && millis() < deadline) {
             delay(20);
             if ((millis() % 5000) < 20)
-                Serial.printf("[Voice] waiting... %lus\n",
-                              (unsigned long)((millis() - (deadline - 40000)) / 1000));
+                dlog("[Voice] waiting... %lus",
+                              (unsigned long)((millis() - (deadline - 15000)) / 1000));
         }
 
         if (client.available() < 4) {
-            Serial.println("[Voice] timeout — no WAV received");
+            dlog("[Voice] timeout — no WAV received");
             client.stop();
             return true;
         }
@@ -100,17 +102,17 @@ bool voiceStreamToServer(const uint8_t* pcm, size_t len) {
                         | ((uint32_t)rhdr[2] << 16) | ((uint32_t)rhdr[3] << 24);
 
         if (wavLen == 0) {
-            Serial.println("[Voice] no speech detected — server silent");
+            dlog("[Voice] no speech detected — server silent");
             client.stop();
             return true;
         }
         if (wavLen > 4u * 1024u * 1024u) {
-            Serial.printf("[Voice] WAV too large (%u) — skipping\n", wavLen);
+            dlog("[Voice] WAV too large (%u) — skipping", wavLen);
             client.stop();
             return true;
         }
 
-        Serial.printf("[Voice] streaming %u byte WAV\n", wavLen);
+        dlog("[Voice] streaming %u byte WAV", wavLen);
         // Stream directly from TCP to I2S — no heap buffer needed.
         playWavFromClient(client, wavLen);
         client.stop();
@@ -118,6 +120,6 @@ bool voiceStreamToServer(const uint8_t* pcm, size_t len) {
 
     }
 
-    Serial.println("[Voice] all attempts failed");
+    dlog("[Voice] all attempts failed");
     return false;
 }

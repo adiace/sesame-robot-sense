@@ -34,13 +34,13 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "wifi_log.h"         // dlog() → USB serial + TCP port 8890 (include first)
 #include "face-bitmaps.h"
 #include "movement-sequences.h"
 #include "captive-portal.h"
 #include "audio_handler.h"    // I2S duplex: speaker + INMP441 mic
 #include "wakeword_handler.h" // ESP-SR WakeNet: "Hi ESP" on-device detection
 #include "voice_handler.h"    // TCP client → companion app on laptop
-#include "wifi_log.h"         // mirrors Serial output to TCP port 8890
 
 // ── WiFi credentials ──────────────────────────────────────────────────────────
 
@@ -107,6 +107,16 @@ static size_t       _voicePcmMax = 0;
 int frameDelay       = 100;  // ms between gait frames
 int walkCycles       = 10;   // repetitions per walk command
 int motorCurrentDelay = 20;  // ms between sequential servo writes (original: 50ms)
+
+// One-shot step count for the next movement command ("walk 5" → 5 gait cycles
+// then stop). 0 = continuous (walk until "stop"), the default behavior.
+int gStepLimit = 0;
+
+// TCP (voice) commands are bounded: while a command runs the wake-word
+// listener is off, so an unbounded "dance" made the robot deaf until someone
+// clicked stop in the GUI. Tricks run once; gaits get a default step cap.
+// The captive portal's press-and-hold behavior (HTTP) stays continuous.
+bool gOneShotPose = false;
 
 // ── OLED / face state ─────────────────────────────────────────────────────────
 
@@ -323,7 +333,14 @@ void handleGetStatus() {
   json += "\"currentFace\":\""     + currentFaceName + "\",";
   json += "\"networkConnected\":"  + String(networkConnected ? "true" : "false") + ",";
   json += "\"apIP\":\""            + WiFi.softAPIP().toString() + "\",";
-  json += "\"servosAttached\":"    + String(servosAttached ? "true" : "false");
+  json += "\"servosAttached\":"    + String(servosAttached ? "true" : "false") + ",";
+  // Voice diagnostics — checkable without USB: curl http://sesame-robot.local/api/status
+  json += "\"wakeReady\":"         + String(gWakeReady ? "true" : "false") + ",";
+  json += "\"wakeChunksFed\":"     + String(gWakeChunksFed) + ",";
+  json += "\"micRms\":"            + String(gWakeMicRms, 0) + ",";
+  json += "\"wakeDetections\":"    + String(gWakeDetections) + ",";
+  json += "\"psramBytes\":"        + String(ESP.getPsramSize()) + ",";
+  json += "\"voiceBufSecs\":"      + String(_voicePcmMax / 32000.0f, 1);
   if (networkConnected) json += ",\"networkIP\":\"" + networkIP.toString() + "\"";
   json += "}";
   server.send(200, "application/json", json);
@@ -428,6 +445,28 @@ void serviceTcpCommands() {
     buf[len] = '\0';
     len = 0;
     for (char* p = buf; *p; ++p) *p = tolower(*p);
+
+    // Optional step count on movement commands: "walk 5", "left 2" →
+    // gStepLimit bounds the next gait to N cycles (loop() clears it after).
+    char verb[24];
+    int steps = 0;
+    if (sscanf(buf, "%23s %d", verb, &steps) == 2 && steps > 0) {
+      strcpy(buf, verb);
+      gStepLimit = min(steps, 50);
+    }
+
+    // Companion-app vocabulary → firmware pose names
+    if (!strcmp(buf, "walk")) strcpy(buf, "forward");
+    if (!strcmp(buf, "back")) strcpy(buf, "backward");
+
+    // Bound TCP commands so the robot returns to wake-word listening on its
+    // own: gaits without an explicit count get a default cap, tricks run once.
+    bool isGaitVerb = !strcmp(buf, "forward") || !strcmp(buf, "backward") ||
+                      !strcmp(buf, "left")    || !strcmp(buf, "right");
+    if (isGaitVerb && gStepLimit == 0)
+      gStepLimit = (!strcmp(buf, "left") || !strcmp(buf, "right")) ? 4 : 8;
+    if (!isGaitVerb && _isKnownPose(buf))
+      gOneShotPose = true;
 
     recordInput();
     if (!strcmp(buf, "stop") || !strcmp(buf, "halt")) {
@@ -601,6 +640,13 @@ void loop() {
 
   if (currentCommand != "") {
     String cmd = currentCommand;
+    bool isGait = (cmd == "forward" || cmd == "backward" ||
+                   cmd == "left"    || cmd == "right");
+    // Bounded move: "walk 5" set gStepLimit — run exactly that many gait
+    // cycles once, then stop, instead of looping until "stop" arrives.
+    int savedCycles = walkCycles;
+    if (isGait && gStepLimit > 0) walkCycles = gStepLimit;
+
     if      (cmd == "forward")  runWalkPose();
     else if (cmd == "backward") runWalkBackward();
     else if (cmd == "left")     runTurnLeft();
@@ -637,6 +683,17 @@ void loop() {
       if (currentCommand == "wake") currentCommand = "";
     }
     else currentCommand = "";  // unknown command — drop it instead of spinning
+
+    if (isGait && gStepLimit > 0) {
+      walkCycles = savedCycles;
+      gStepLimit = 0;
+      if (currentCommand == cmd) currentCommand = "";  // bounded move done
+      runStandPose(1);
+    }
+    if (gOneShotPose) {
+      gOneShotPose = false;
+      if (currentCommand == cmd) currentCommand = "";  // trick ran once — done
+    }
   }
 
   // ── Voice wake detection — WakeNet "Hi ESP" ──────────────────────────────────
@@ -653,18 +710,27 @@ void loop() {
                        pdMS_TO_TICKS(rd == 0 ? 20 : 0));
       int pairs = got / 4;
       if (pairs == 0) break;
-      for (int i = 0; i < pairs; i++) _wkBuf[i] = micApplyGain(_stereo[i * 2]);  // left channel
+      int64_t sq = 0;
+      for (int i = 0; i < pairs; i++) {
+        _wkBuf[i] = micApplyGain(_stereo[i * 2]);  // left channel
+        sq += (int64_t)_wkBuf[i] * _wkBuf[i];
+      }
+      gWakeMicRms = sqrtf((float)(sq / pairs));   // live level for /api/status
+      // Slow EMA of ambient level, skipping loud transients (speech, taps) so
+      // talking near the robot doesn't inflate the noise floor.
+      if (gWakeMicRms < gAmbientRms * 3.0f)
+        gAmbientRms += 0.05f * (gWakeMicRms - gAmbientRms);
       wakeHit = wakewordFeed(_wkBuf, pairs);
       if (got < sizeof(_stereo)) break;   // backlog drained
     }
 
     if (wakeHit) {
       setFace("excited");
-      playBeep(880, 80);
-      // Let the beep finish playing and acoustically decay inside the body
-      // before recording — the enclosed speaker couples straight into the mic,
-      // and the beep tone armed the VAD then read as end-of-speech.
-      delay(200);
+      // Wake acknowledgment beep. Balance: full-volume 880Hz rang the enclosure,
+      // armed the VAD and got transcribed as "2."; amplitude 3000 was inaudible
+      // outside the body. Fade edges (in playBeep) stop the enclosure ringing.
+      playBeep(1500, 70, 9000);
+      delay(120);   // beep decay before micRecord's flush + noise calibration
 
       size_t pcmLen = micRecord(_voicePcmBuf, _voicePcmMax);
       if (pcmLen > 0) {
