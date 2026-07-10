@@ -716,10 +716,13 @@ void loop() {
         sq += (int64_t)_wkBuf[i] * _wkBuf[i];
       }
       gWakeMicRms = sqrtf((float)(sq / pairs));   // live level for /api/status
-      // Slow EMA of ambient level, skipping loud transients (speech, taps) so
-      // talking near the robot doesn't inflate the noise floor.
-      if (gWakeMicRms < gAmbientRms * 3.0f)
-        gAmbientRms += 0.05f * (gWakeMicRms - gAmbientRms);
+      // Slow EMA of ambient level. Loud transients (speech, taps) adapt 100×
+      // slower rather than being skipped outright — a hard skip deadlocked the
+      // estimate when the mic got physically resealed and true ambient jumped
+      // >3× (every chunk read as "transient", floor stayed stale-low, silence
+      // never registered, recordings ran to the 4s cap).
+      float a = (gWakeMicRms < gAmbientRms * 3.0f) ? 0.05f : 0.0005f;
+      gAmbientRms += a * (gWakeMicRms - gAmbientRms);
       wakeHit = wakewordFeed(_wkBuf, pairs);
       if (got < sizeof(_stereo)) break;   // backlog drained
     }
