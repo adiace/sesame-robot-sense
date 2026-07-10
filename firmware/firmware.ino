@@ -97,10 +97,20 @@ bool servosAttached        = false;
 
 // ── Voice state ───────────────────────────────────────────────────────────────
 
-static float        _voiceAvg    = 500.0f;
-static unsigned long _voiceStart = 0;      // set in setup(); mute for 3s after boot
-static uint8_t*     _voicePcmBuf = nullptr;
-static size_t       _voicePcmMax = 0;
+static float         _voiceAvg          = 500.0f;
+static uint8_t*      _voicePcmBuf       = nullptr;
+static size_t        _voicePcmMax       = 0;
+static volatile bool _micWakeDetected   = false;  // set by wake task, cleared by micWakeClear()
+static volatile uint32_t _micWakeCooldown = 0;   // millis() deadline; task polls this
+static TaskHandle_t  _micWakeTaskHandle = nullptr;
+
+// Called by loop() after recording + pipeline are done.
+// Clears the wake flag, sets a 2-second cooldown, and resumes the suspended task.
+static void micWakeClear() {
+    _micWakeDetected = false;
+    _micWakeCooldown = millis() + 2000;
+    if (_micWakeTaskHandle) vTaskResume(_micWakeTaskHandle);
+}
 
 // ── Motion / animation tunables ───────────────────────────────────────────────
 
@@ -490,6 +500,50 @@ void serviceTcpCommands() {
 // at ~262ms. Stubbing out the IDF init prevents it from ever being armed.
 extern "C" void esp_brownout_init(void) {}
 
+// ── Wake task — ported from sesame-robot-sense _micWakeTask ──────────────────
+// Runs on Core 1. Feeds WakeNet continuously; on "Hi ESP" detection: sets
+// _micWakeDetected and self-suspends via vTaskSuspend(NULL). The main loop
+// calls micWakeClear() after recording to set a 2s cooldown and resume.
+// No access to currentCommand — String is not safe to read across FreeRTOS
+// task boundaries.
+static void _wakeTaskFn(void*) {
+    vTaskDelay(pdMS_TO_TICKS(5000));   // boot cooldown
+
+    // Heap buffers — one WakeNet window (480 stereo pairs = 1920 bytes) per read.
+    // This matches the documented ESP-SR pattern: one blocking read per window
+    // guarantees contiguous audio with no gaps between feed calls.
+    const int STEREO_BYTES = _wn_chunk * 4;
+    int16_t* stereo = (int16_t*)malloc(STEREO_BYTES);
+    int16_t* mono   = (int16_t*)malloc(_wn_chunk * 2);
+    if (!stereo || !mono || !_wn_chunk) {
+        free(stereo); free(mono); vTaskDelete(NULL); return;
+    }
+
+    for (;;) {
+        if (millis() < _micWakeCooldown) { vTaskDelay(1); continue; }
+
+        size_t got = 0;
+        i2s_channel_read(_aud_rx, stereo, STEREO_BYTES, &got, pdMS_TO_TICKS(100));
+        int pairs = (int)(got / 4);
+        if (pairs == 0) { vTaskDelay(1); continue; }
+
+        int64_t sq = 0;
+        for (int i = 0; i < pairs; i++) {
+            mono[i] = micApplyGain(stereo[i * 2]);
+            sq += (int64_t)mono[i] * mono[i];
+        }
+        gWakeMicRms = sqrtf((float)(sq / pairs));
+        float a = (gWakeMicRms < gAmbientRms * 3.0f) ? 0.05f : 0.0005f;
+        gAmbientRms += a * (gWakeMicRms - gAmbientRms);
+
+        if (wakewordFeed(mono, pairs)) {
+            _micWakeDetected = true;
+            vTaskSuspend(NULL);   // resumes via micWakeClear()
+        }
+        vTaskDelay(1);
+    }
+}
+
 // ── setup() ───────────────────────────────────────────────────────────────────
 
 void setup() {
@@ -517,8 +571,9 @@ void setup() {
   } else {
     Serial.println(F("Audio: I2S FAILED — voice disabled"));
   }
-  // WakeNet: load "Hi ESP" model from model partition
+  // WakeNet: load "Hi ESP" model from model partition, then start wake task
   wakewordSetup();
+  xTaskCreatePinnedToCore(_wakeTaskFn, "micWake", 8192, nullptr, 1, &_micWakeTaskHandle, 1);
   // Allocate PCM recording buffer — try PSRAM (4s) then internal RAM (2s)
   _voicePcmBuf = (uint8_t*)ps_malloc(AUDIO_SAMPLE_RATE * 2 * 4);
   if (_voicePcmBuf) {
@@ -620,8 +675,6 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println(F("OTA ready (password: sesame)"));
 
-  _voiceStart = millis();
-
   enterIdle();   // standing + idle face (boot used to slump into rest)
   Serial.println(F("Ready."));
 }
@@ -696,56 +749,21 @@ void loop() {
     }
   }
 
-  // ── Voice wake detection — WakeNet "Hi ESP" ──────────────────────────────────
-  if (_voicePcmBuf && currentCommand == "" && millis() - _voiceStart > 3000) {
-    // Feed WakeNet (16-bit mono, left channel). Drain the whole DMA backlog each
-    // pass: OLED face redraws block the loop for ~25ms and a single small read
-    // couldn't keep up — the ring overflowed and WakeNet heard gaps mid-phrase.
-    static int16_t _wkBuf[256];
-    static int16_t _stereo[512];
-    bool wakeHit = false;
-    for (int rd = 0; rd < 10 && !wakeHit; rd++) {
-      size_t got = 0;
-      i2s_channel_read(_aud_rx, _stereo, sizeof(_stereo), &got,
-                       pdMS_TO_TICKS(rd == 0 ? 20 : 0));
-      int pairs = got / 4;
-      if (pairs == 0) break;
-      int64_t sq = 0;
-      for (int i = 0; i < pairs; i++) {
-        _wkBuf[i] = micApplyGain(_stereo[i * 2]);  // left channel
-        sq += (int64_t)_wkBuf[i] * _wkBuf[i];
-      }
-      gWakeMicRms = sqrtf((float)(sq / pairs));   // live level for /api/status
-      // Slow EMA of ambient level. Loud transients (speech, taps) adapt 100×
-      // slower rather than being skipped outright — a hard skip deadlocked the
-      // estimate when the mic got physically resealed and true ambient jumped
-      // >3× (every chunk read as "transient", floor stayed stale-low, silence
-      // never registered, recordings ran to the 4s cap).
-      float a = (gWakeMicRms < gAmbientRms * 3.0f) ? 0.05f : 0.0005f;
-      gAmbientRms += a * (gWakeMicRms - gAmbientRms);
-      wakeHit = wakewordFeed(_wkBuf, pairs);
-      if (got < sizeof(_stereo)) break;   // backlog drained
+  // ── Voice: act on wake detection from wake task ───────────────────────────────
+  if (_micWakeDetected && currentCommand == "") {
+    setFace("excited");
+    playBeep(1500, 70, 9000);
+    delay(120);   // beep decay + DMA settle before recording
+
+    size_t pcmLen = micRecord(_voicePcmBuf, _voicePcmMax);
+    if (pcmLen > 0) {
+      setFace("thinking");
+      voiceStreamToServer(_voicePcmBuf, pcmLen);
     }
 
-    if (wakeHit) {
-      setFace("excited");
-      // Wake acknowledgment beep. Balance: full-volume 880Hz rang the enclosure,
-      // armed the VAD and got transcribed as "2."; amplitude 3000 was inaudible
-      // outside the body. Fade edges (in playBeep) stop the enclosure ringing.
-      playBeep(1500, 70, 9000);
-      delay(120);   // beep decay before micRecord's flush + noise calibration
-
-      size_t pcmLen = micRecord(_voicePcmBuf, _voicePcmMax);
-      if (pcmLen > 0) {
-        setFace("thinking");
-        bool ok = voiceStreamToServer(_voicePcmBuf, pcmLen);
-        if (!ok) Serial.println("[Voice] stream failed");
-      }
-
-      setFace("rest");
-      enterIdle();
-      _voiceStart = millis();  // 3s cooldown
-    }
+    setFace("rest");
+    enterIdle();
+    micWakeClear();   // clears flag, 2s cooldown, resumes wake task
   }
 
   // Serial CLI — useful for diagnosing servo wiring and trim calibration
