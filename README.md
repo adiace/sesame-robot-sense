@@ -1,134 +1,183 @@
-# The Sesame Robot Project 
-___
-![License](https://img.shields.io/badge/License-APACHE2.0-yellow)
-![Microcontroller](https://img.shields.io/badge/Microcontroller-ESP32-blue)
-![Firmware](https://img.shields.io/badge/Firmware-C%2B%2B-blue?logo=c%2B%2B)
-![IDE](https://img.shields.io/badge/IDE-Arduino-00979D?logo=arduino&logoColor=white)
-![GitHub stars](https://img.shields.io/github/stars/dorianborian/sesame-robot?style=social)
-![GitHub forks](https://img.shields.io/github/forks/dorianborian/sesame-robot?style=social)
+# Sesame Robot — Voice Edition
 
-<img width="100%" height="728" alt="sesame-cover" src="https://github.com/user-attachments/assets/f0cc6ad0-135b-4515-8750-900f224ed7ae" />
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![MCU](https://img.shields.io/badge/MCU-ESP32--S3%20(N16R8)-orange.svg)]()
+[![Firmware](https://img.shields.io/badge/firmware-Arduino%20C%2B%2B-teal.svg)]()
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=NIgoQVQF_Ng">
-    <img src="https://github.com/user-attachments/assets/1663e022-0680-4053-97b4-53e669a6f07d" width="49%" alt="tutorial-button">
-  </a>
-  <a href="https://discord.gg/XDXkhQd8bC">
-    <img src="https://github.com/user-attachments/assets/378fcb48-5b12-4b46-9dcb-452432d49913" width="49%" alt="discord-button">
-  </a>
-</p>
+A **voice-assistant fork** of [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot).
+Say **"Hi ESP"** and Sesame listens: on-device wake-word detection, a microphone and
+speaker in the body, and an AI brain on your laptop
+([sesame-companion-app-sense](https://github.com/adiace/sesame-companion-app-sense)) that
+understands speech, chats back, and drives the robot — all running locally, no cloud
+accounts required.
 
-___
+All original Sesame movement sequences, OLED faces, and the web UI are preserved.
+**Build the robot itself from the original repo** — its
+[build guide](https://github.com/dorianborian/sesame-robot/tree/main/docs/build-guide),
+[hardware files](https://github.com/dorianborian/sesame-robot/tree/main/hardware) (CAD,
+STLs, Distro Board V3 PCB) and BOM are unchanged and not duplicated here. This repo adds
+the voice hardware, the voice firmware, and the docs for both.
 
-**Greetings, from your new best friend.**
+## What this fork adds
 
-Sesame is an accessible Open-Source robotics project based on the ESP32 microcontroller system, with an emphasis on expression and movement. 
-This project is designed for makers and engineers of all skill levels! Sesame offers a dynamic platform designed to start working with walking robots. 
-To build a sesame robot, you will need basic soldering skills, $50-60 in hardware components, access to a 3D printer, and a basic understanding of Arduino IDE.
+| | Original Sesame | This fork |
+|---|---|---|
+| Wake word | — | **"Hi ESP"** detected on-device (ESP-SR WakeNet, no laptop needed to wake) |
+| Microphone | — | INMP441 I2S MEMS mic in the body |
+| Speaker | — | MAX98357A I2S amp + 3W speaker: talks back, beeps, plays TTS |
+| AI | — | Companion app: local Whisper STT → local LLM (Ollama) → TTS |
+| Commands | Web UI buttons | Voice ("walk 5 steps then turn left"), TCP :8888, web UI, serial |
+| Firmware updates | USB | **OTA over WiFi** (required once servos are attached — see below) |
+| Servo PWM | 732–2929 µs | **500–2400 µs** (MG90S spec — no more stalling at hard stops) |
+| Brownout | resets under load | disabled + staggered init + motor sleep (see [changes](#changes-from-the-original-firmware)) |
+| Debugging | USB serial | WiFi log (port 8890) + live health JSON (`/api/status`) |
 
-This repository contains the CAD design files, STL files, build and wiring guides, and the base/expanded firmware for the ESP32-based controller. 
-There is also some included debugging firmware that may be helpful in getting your Sesame up and running.
+## Parts (voice upgrade only)
 
-## Features
+On top of a working Sesame with the **Distro Board V3**:
 
-*   **Quadruped Design:** Uses 8 servo motors (2 per leg) to achieve roughly 8 total degrees of freedom.
-*   **Emotive Display:** Features a 128x64 OLED screen acting as a reactive face that syncs with movement.
-*   **Fully Printable:** Designed entirely for 3D printing in PLA with minimal supports.
-*   **Network Connectivity:** Connect to your WiFi network for remote control and API access.
-*   **JSON API:** RESTful API for programmatic control from Python, JavaScript, and more.
-*   **Conversational Faces:** Expressive emotion library with talk variants for voice assistant projects.
-*   **Sesame Studio:** New animation composer software to easily create custom movements.
-*   **Sesame Companion App:** Python application for voice control and advanced interactions.
-*   **Serial CLI:** Control the robot and trigger animations via a Serial Command Line Interface or the web UI.
-*   **Pre-programmed Emotes:** Includes animations for Walking, Waving, Dancing, Pointing, Resting, and more.
+| Part | What it is | Notes |
+|---|---|---|
+| **ESP32-S3 DevKitC (N16R8)** | 16 MB flash / 8 MB PSRAM dev module | Replaces the S2 Mini — WakeNet needs the PSRAM, the wake model needs the flash |
+| **INMP441** | I2S MEMS microphone breakout | ~$2. The robot's ear |
+| **MAX98357A** | 3 W I2S class-D amplifier breakout | ~$2. The robot's voice box |
+| **Speaker** | 4 Ω or 8 Ω, 2–3 W, ~28–40 mm | Fits in the body; bigger cone = louder |
+| Hookup wire | ~10 short jumpers | |
 
+![Distro Board V3](docs/images/close-v3.png)
 
-## Watch the launch video on YouTube
+## Wiring
 
-<a href="https://www.youtube.com/watch?v=1UDsWkcQZhc"><img src="https://github.com/user-attachments/assets/710cb5a6-163e-47e7-a294-5e2d2ab07627" width="70%" alt="thumb-youtube"></a>
+The mic and amp **share** the I2S clock pins (one I2S bus, full duplex — the robot can
+listen and talk at the same time).
 
-___
+![Voice wiring diagram](docs/images/voice-wiring.png)
 
-## Getting Started
+| Wire | From (module pin) | To (ESP32-S3 pin) |
+|---|---|---|
+| Shared bit clock | INMP441 **SCK** + MAX98357A **BCLK** | **GPIO 1** |
+| Shared word select | INMP441 **WS** + MAX98357A **LRC** | **GPIO 2** |
+| Mic data | INMP441 **SD** | **GPIO 3** |
+| Amp data | MAX98357A **DIN** | **GPIO 14** |
+| Mic channel select | INMP441 **L/R** | **GND** (= left channel) |
+| Amp gain select | MAX98357A **GAIN** | **GND** (= 12 dB — see table below) |
+| Power | both modules **VDD/VIN** | **3V3** |
+| Ground | both modules **GND** | **GND** |
+| Speaker | MAX98357A **+ / −** | speaker terminals |
 
-Follow these steps to build your own Sesame Robot:
+**MAX98357A GAIN pin** (counter-intuitive — wiring it to 3V3 makes it *quieter*):
 
-### 1. Gather Parts 
-Check the **[Bill of Materials (BOM)](hardware/bom/README.md)** for a complete list of required electronics and hardware.
-*   Microcontroller: Lolin S2 Mini (recommended for DIY builds), Sesame Distro Board V3 (Current, pre-flashed, supports Bambu Lab battery), V2 (legacy, USB-only), or ESP32-DevKitC-32E with Distro Board V1 (legacy)
-*   Actuators: 8x MG90 Servos
-*   Power: 5V 3A source (USB-C PD for S2 Mini and V2 Distro Board, or battery + buck converter; see BOM for the Bambu Lab 14500 7.4V 800mAh Li-ion Battery option)
+| GAIN wiring | Gain |
+|---|---|
+| 100 kΩ to GND | 15 dB (max) |
+| **direct to GND** | **12 dB (recommended)** |
+| floating | 9 dB |
+| direct to 3V3 | 6 dB |
+| 100 kΩ to 3V3 | 3 dB (min) |
 
-### 2. Print Parts 
-Download the STLs and follow the **[Printing Guide](hardware/printing/README.md)**.
-*   Designed for PLA
-*   Minimal supports required
+**Mic placement matters.** Mount the INMP441 with its port hole pressed directly against
+a hole in the body shell, sealed with a ring of foam tape — an air gap between the mic
+port and the shell muffles consonants and wrecks speech recognition.
 
-### 3. Build & Wire 
-Follow the **[Build Guide](docs/build-guide/README.md)** and **[Wiring Guide](docs/wiring-guide/README.md)** to assemble the frame and connect the electronics.
+The rest of the robot (servos on GPIO 4,5,6,7,10,11,12,13 · OLED on I2C SDA=GPIO 8 /
+SCL=GPIO 9) is wired exactly as the V3 board build in the original repo. Full pin
+reference: [docs/wiring.md](docs/wiring.md).
 
-### 4. Flash Firmware 
-Upload the code from the **[Firmware Directory](firmware/README.md)**.
-*   Requires Arduino IDE
-*   Configure WiFi AP settings
+<!-- PHOTOS of mic and amp installed in the robot body go here (docs/images/) -->
 
-### 5. Create Animations 
-Use **[Sesame Studio](software/sesame-studio/README.md)** to visually design poses and sequences for your robot.
+## Getting started
 
-<img width="100%" height="728" alt="sesame-wakeup-gif" src="https://github.com/user-attachments/assets/a4951195-4253-40a4-a87d-d14fad57ff5f" />
+**1. Install the Arduino environment**
 
----
+- [Arduino IDE](https://www.arduino.cc/en/software) 2.x
+- In IDE Preferences → Additional Board Manager URLs, add:
+  `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
+- Boards Manager → install **esp32 by Espressif** (3.x)
+- Library Manager → install **Adafruit GFX** and **Adafruit SSD1306**
 
-## Software & Firmware
+**2. Configure the board** (Tools menu — all four matter):
 
-### Sesame Studio
-Sesame Studio is a standalone desktop application included in `software/sesame-studio/`. It allows you to:
-*   Visually pose the robot using a schematic interface.
-*   Generate C++ code for servo angles automatically.
-*   Sequence frames into complex animations.
+| Setting | Value |
+|---|---|
+| Board | ESP32S3 Dev Module |
+| Flash Size | **16MB (128Mb)** |
+| Partition Scheme | **Custom** (uses `firmware/partitions.csv`) |
+| PSRAM | **OPI PSRAM** |
+| Flash Mode | **QIO 80MHz** |
 
-[**> Go to Sesame Studio**](software/sesame-studio/README.md)
+**3. Set your WiFi**
 
+```bash
+cd firmware
+cp wifi_credentials.h.example wifi_credentials.h
+# edit wifi_credentials.h — your SSID and password (this file is gitignored)
+```
 
-### Sesame Simulator
-The Sesame Simulator, created by Jay Li, is a Rust-based 3D simulation environment for testing Sesame's movements and kinematics in a virtual space. It features:
-*   **Physics-based Simulation:** Test walking and balance without hardware.
-*   **Web-based Interface:** Run the simulator directly in your browser.
-*   **URDF Integration:** Accurate modeling of Sesame's physical properties.
+Also set your laptop's IP in `firmware/voice_config.h`
+(find it with `ipconfig getifaddr en0` on a Mac).
 
-[**> Go to Sesame Simulator**](https://one-for-all.github.io/sesame-robot-sim/)
+**4. Flash — servos DISCONNECTED, over USB (one time)**
 
-### Sesame Companion App
-The Sesame Companion App is a Python-based application that enables advanced control and interaction with your robot over your local network. It leverages the new JSON API and network mode features to provide:
-*   **Voice Assistant Integration:** Control Sesame with voice commands and see real-time emotional expressions.
-*   **Remote Control:** Command your robot from anywhere on your local network.
-*   **Face Control:** Change expressions dynamically based on conversation or context.
-*   **API Examples:** Reference implementation for building your own integrations.
+> ⚠️ **USB flashing only works with the servos unplugged.** With servos attached, their
+> current draw crashes the board during a USB flash (USB 5V can't feed the servo rail).
+> This first USB flash is the only one you'll ever need — everything after is OTA.
 
-The Companion App works with robots running the latest firmware with network mode enabled.
+1. Plug in the board over USB, select its port, click **Upload**.
+2. Flash the wake-word model (one time — it survives all future firmware updates):
 
-[**> Go to Sesame Companion App Repository**](https://github.com/dorianborian/sesame-companion-app)
+```bash
+esptool --chip esp32s3 -p /dev/cu.usbmodem101 write-flash 0xC10000 \
+  ~/Library/Arduino15/packages/esp32/tools/esp32s3-libs/*/esp_sr/srmodels.bin
+```
 
-### Firmware
-The ESP32 firmware (`sesame-firmware-main.ino`) handles the kinematics, face display, and WiFi control interface.
-*   **Web UI:** Control the robot from your phone via the built-in Access Point.
-*   **Custom Faces:** Add your own bitmaps (guide in firmware docs).
+3. Open Serial Monitor (115200). You should see two beeps, then:
+   `[Wake] Hi ESP ready` and `Network IP: ...`
 
-[**> Go to Firmware Docs**](firmware/README.md)
+**5. Reconnect servos — from now on, flash over WiFi (OTA)**
 
+In the IDE: Tools → Port → **sesame-robot at sesame-robot.local** (network section),
+password `sesame`. Or from a terminal:
 
----
+```bash
+espota.py -i sesame-robot.local -p 3232 --auth=sesame -f firmware.ino.bin
+```
 
-## Contributing
+**6. Start the brain** — install and run
+[sesame-companion-app-sense](https://github.com/adiace/sesame-companion-app-sense) on
+your laptop (its README is a 3-step setup), then say **"Hi ESP"**, wait for the beep,
+and talk: *"dance for me"*, *"walk 5 steps then turn left"*, *"tell me a joke"*.
 
-This robot is a platform for building new features, cosmetics, tools, and ideas. Since the current firmware is a basic implementation, pull requests are very welcome for:
-*   Kinematics improvements
-*   New animations
-*   Improved Web UI/UX
-*   Sensor integration (Ultrasonic, Gyro, etc.)
+## Changes from the original firmware
 
-I would also love to see forks of this project with new hardware, software, faces, etc. Be sure to send me a message if you end up building one, and I might feature you on my website or channel!
-  
----
+Beyond the voice features, this fork fixes several hardware-abuse issues:
 
-*Created by [Dorian Todd](https://www.doriantodd.com/). Need help with your Sesame Robot? Send me a message on Discord, my username is "starphee"*
+- **Servo PWM range 500–2400 µs** (was 732–2929 µs). The original range exceeds the
+  MG90S's physical travel, so high angles drove servos into their internal hard stop —
+  buzzing, heat, and current spikes. 500/2400 is the MG90S spec: logical 0–180° now maps
+  to real, reachable positions.
+- **Brownout detector disabled** (`esp_brownout_init()` overridden). Multiple servos
+  moving at once sag the rail enough to trip the ESP32-S3's brownout reset mid-walk.
+- **Staggered servo init** — at boot, servos attach one at a time (100 ms apart) into the
+  stand pose with saved trims, instead of all eight snapping at once (inrush current) or
+  floating loose until the first command.
+- **Motor sleep** — 5 minutes idle → rest pose, then servos fully detached (no hold
+  current, no wear, no hum). `wake` (or any voice interaction) re-attaches.
+- **Voice commands are bounded** — "walk" walks 8 steps and stops; "dance" dances once.
+  The robot always returns to listening; it can't run away or dance forever because the
+  wake word can't be heard mid-command.
+
+## Documentation
+
+| Doc | Contents |
+|---|---|
+| [docs/wiring.md](docs/wiring.md) | Every pin: I2S audio, servos, I2C/OLED, power, amp gain |
+| [docs/setup.md](docs/setup.md) | IDE settings, model flash, WiFi, OTA — expanded from Getting started |
+| [docs/commands.md](docs/commands.md) | Full command reference: TCP :8888, HTTP API, serial CLI |
+| [docs/voice.md](docs/voice.md) | Voice pipeline internals, tuning knobs, debugging tools |
+| [firmware/README.md](firmware/README.md) | What each firmware file does |
+
+## Credits
+
+Sesame was created by **Dorian Todd** — [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot).
+This fork adds the voice hardware and firmware; the robot design, movement sequences,
+faces, and web UI are his work.

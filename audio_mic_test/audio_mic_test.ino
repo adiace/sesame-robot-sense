@@ -22,8 +22,8 @@
 #include <ArduinoOTA.h>
 #include "driver/i2s_std.h"
 
-#define WIFI_SSID "nomonkeybusiness"
-#define WIFI_PASS "kingkong"
+#define WIFI_SSID "your-wifi-ssid"
+#define WIFI_PASS "your-wifi-password"
 
 #define I2S_BCLK   GPIO_NUM_1
 #define I2S_WS     GPIO_NUM_2
