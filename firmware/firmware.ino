@@ -103,6 +103,7 @@ static size_t        _voicePcmMax       = 0;
 static volatile bool _micWakeDetected   = false;  // set by wake task, cleared by micWakeClear()
 static volatile uint32_t _micWakeCooldown = 0;   // millis() deadline; task polls this
 static TaskHandle_t  _micWakeTaskHandle = nullptr;
+static volatile bool gWakeListening    = false;  // true after boot cooldown — signals loop() to beep
 
 // Called by loop() after recording + pipeline are done.
 // Clears the wake flag, sets a 2-second cooldown, and resumes the suspended task.
@@ -508,6 +509,7 @@ extern "C" void esp_brownout_init(void) {}
 // task boundaries.
 static void _wakeTaskFn(void*) {
     vTaskDelay(pdMS_TO_TICKS(5000));   // boot cooldown
+    gWakeListening = true;             // signals loop() to play the ready beep
 
     // Heap buffers — one WakeNet window (480 stereo pairs = 1920 bytes) per read.
     // This matches the documented ESP-SR pattern: one blocking read per window
@@ -690,6 +692,15 @@ void loop() {
   updateAnimatedFace();
   updateIdleBlink();
   updateWifiInfoScroll();
+
+  // Two ascending beeps when wake task finishes its boot cooldown and starts listening.
+  static bool _bootBeepDone = false;
+  if (!_bootBeepDone && gWakeListening) {
+    _bootBeepDone = true;
+    playBeep(1200, 100, 8000);
+    delay(80);
+    playBeep(1600, 100, 8000);
+  }
 
   if (currentCommand != "") {
     String cmd = currentCommand;
