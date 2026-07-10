@@ -48,10 +48,12 @@ One-time model flash (survives firmware uploads; re-flash only after full chip e
 | MIC SD | 3 | INMP441 SD (L/R → GND = left channel) |
 | AMP DIN | 14 | MAX98357A DIN |
 
-MAX98357A GAIN → GND (12dB). Datasheet gain table: 100kΩ-to-GND=15dB, GND=12dB,
-floating=9dB, VDD=6dB, 100kΩ-to-VDD=3dB — note direct-to-3V3 is nearly the QUIETEST
-setting, not the loudest. No digital gain on the speaker path — loudness comes from
-the companion app's Python maximizer (compression + peak normalize) on each TTS clip.
+MAX98357A GAIN → **currently wired to 3V3 = 6dB, nearly the QUIETEST setting**.
+Datasheet gain table: 100kΩ-to-GND=15dB, GND=12dB, floating=9dB, VDD=6dB,
+100kΩ-to-VDD=3dB. **Pending hardware fix: move GAIN wire from 3V3 to GND for a
+free +6dB** (do it together with the mic port seal). No digital gain on the speaker
+path — loudness comes from the companion app's Python maximizer (compression +
+peak normalize) on each TTS clip.
 
 Mic path has `MIC_GAIN 4` software gain (`audio_handler.h`) because the mic is
 enclosed in the robot body behind a port hole. VAD thresholds scale with it
