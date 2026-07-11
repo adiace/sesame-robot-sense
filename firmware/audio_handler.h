@@ -233,7 +233,7 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
     const int CHUNK_PAIRS  = 480;
     const int CHUNK_STEREO = CHUNK_PAIRS * 4;   // bytes to read from I2S
     const int CHUNK_MONO   = CHUNK_PAIRS * 2;   // bytes to write to outBuf
-    const int SILENCE_HOLD = 16;                // silence chunks after speech → stop (~480ms)
+    const int SILENCE_HOLD = 8;                 // silence chunks after speech → stop (~240ms)
     const int SPEECH_ARM   = 3;                 // consecutive loud chunks to count as speech (90ms)
     const int PREROLL_CHUNKS = 10;              // leading audio kept before speech starts (300ms)
 
