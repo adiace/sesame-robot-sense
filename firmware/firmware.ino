@@ -101,11 +101,9 @@ static float         _voiceAvg          = 500.0f;
 static uint8_t*      _voicePcmBuf       = nullptr;
 static size_t        _voicePcmMax       = 0;
 static volatile bool     _micWakeDetected  = false;  // set by wake task, cleared by micWakeClear()
-static volatile bool     _micWakeIsConv    = false;  // true when energy window triggered (not WakeNet)
 static volatile uint32_t _micWakeCooldown  = 0;      // millis() deadline; task polls this
 static TaskHandle_t      _micWakeTaskHandle = nullptr;
 static volatile bool     gWakeListening    = false;  // true after boot cooldown — signals loop() to beep
-volatile uint32_t        gConvWindowEnd    = 0;      // millis() deadline for energy-based re-trigger
 
 // Called by loop() after recording + pipeline are done.
 static void micWakeClear() {
@@ -539,16 +537,7 @@ static void _wakeTaskFn(void*) {
         float a = (gWakeMicRms < gAmbientRms * 3.0f) ? 0.05f : 0.0005f;
         gAmbientRms += a * (gWakeMicRms - gAmbientRms);
 
-        // Conversation window: energy-based re-trigger so the user can give
-        // follow-up commands without saying "Hi ESP" again.
-        if (gConvWindowEnd && millis() < gConvWindowEnd
-                && gWakeMicRms > gAmbientRms * 3.5f) {
-            gConvWindowEnd = 0;
-            _micWakeIsConv = true;
-            _micWakeDetected = true;
-            vTaskSuspend(NULL);
-        } else if (wakewordFeed(mono, pairs)) {
-            _micWakeIsConv = false;
+        if (wakewordFeed(mono, pairs)) {
             _micWakeDetected = true;
             vTaskSuspend(NULL);
         }
@@ -770,25 +759,16 @@ void loop() {
     }
   }
 
-  // ── Voice: wake word or conversation window re-trigger ────────────────────────
+  // ── Voice: wake word detected ─────────────────────────────────────────────────
   if (_micWakeDetected && currentCommand == "") {
     setFace("excited");
-    if (_micWakeIsConv) {
-      playBeep(1200, 50, 5000);  // short quiet beep for conv re-trigger
-      delay(60);
-    } else {
-      playBeep(1500, 70, 9000);  // full beep for wake word
-      delay(100);
-    }
+    playBeep(1500, 70, 9000);
+    delay(100);
 
     size_t pcmLen = micRecord(_voicePcmBuf, _voicePcmMax);
     if (pcmLen > 0) {
       setFace("thinking");
       voiceStreamToServer(_voicePcmBuf, pcmLen);
-      // Keep conversation window open for 7s after each successful exchange
-      gConvWindowEnd = millis() + 2000 + 15000;
-    } else {
-      gConvWindowEnd = 0;  // no speech — close window, back to wake word only
     }
 
     setFace("rest");
