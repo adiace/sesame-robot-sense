@@ -848,9 +848,11 @@ void loop() {
 
 // ── Servo helpers ─────────────────────────────────────────────────────────────
 
-// Guard so movement-sequences.h calls to attachServos() compile without effect.
-// All servo init happens eagerly in setup().
-static void attachServos() { if (servosAttached) return; }
+static void attachServos() {
+  if (servosAttached) return;
+  for (int i = 0; i < 8; i++) ledcAttach(servoPins[i], 50, 14);
+  servosAttached = true;
+}
 
 void detachServos() {
   if (!servosAttached) return;
