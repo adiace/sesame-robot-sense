@@ -35,6 +35,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "wifi_log.h"         // dlog() → USB serial + TCP port 8890 (include first)
+// ── WiFi credentials — must come before voice_handler.h so VOICE_SERVER_IP is set ──
+#include "wifi_credentials.h"
 #include "face-bitmaps.h"
 #include "movement-sequences.h"
 #include "captive-portal.h"
@@ -47,10 +49,6 @@
 // AP the robot always creates (for direct connection via captive portal)
 #define AP_SSID  "Sesame-Controller"
 #define AP_PASS  "12345678"          // must be ≥ 8 chars
-
-// Optional: home/office network. Credentials live in the gitignored
-// wifi_credentials.h — copy wifi_credentials.h.example to create it.
-#include "wifi_credentials.h"
 #define ENABLE_NETWORK_MODE true
 
 // ── Hardware ──────────────────────────────────────────────────────────────────
