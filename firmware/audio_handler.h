@@ -283,7 +283,8 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
     int    speechRun  = 0;
     bool   speechSeen = false;
     float  peakRms    = 0;
-    unsigned long tStart = millis();
+    unsigned long tStart      = millis();
+    unsigned long tSpeechEnd  = 0;  // hard cap after speech starts
 
     while (captured + CHUNK_MONO <= maxLen) {
         int n;
@@ -295,24 +296,23 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
         captured += n * 2;
 
         if (!speechSeen) {
-            // Waiting for the user to start talking. A single loud blip (breath,
-            // servo click) doesn't count — require SPEECH_ARM consecutive chunks.
             if (rms >= speechThresh) {
-                if (++speechRun >= SPEECH_ARM) speechSeen = true;
+                if (++speechRun >= SPEECH_ARM) {
+                    speechSeen  = true;
+                    tSpeechEnd  = millis() + 2500;  // cap: 2.5s after speech starts
+                }
             } else {
                 speechRun = 0;
             }
-            // Keep only a short pre-roll so leading silence isn't uploaded and a
-            // long pause before speaking can't fill the buffer.
             if (!speechSeen && captured > (size_t)(PREROLL_CHUNKS * CHUNK_MONO)) {
                 memmove(outBuf, outBuf + CHUNK_MONO, captured - CHUNK_MONO);
                 captured -= CHUNK_MONO;
             }
-            // Generous window: user may pause after the wake beep before speaking.
             if (!speechSeen && millis() - tStart > 5000) break;
         } else {
             if (rms >= speechThresh) silenceRun = 0;
             else if (++silenceRun >= SILENCE_HOLD) break;
+            if (millis() > tSpeechEnd) break;  // hard stop — prevents 4s runaway
         }
     }
     dlog("[Mic] recorded %zu bytes (%.1fs) peak=%.0f thresh=%.0f%s",
