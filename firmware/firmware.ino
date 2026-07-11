@@ -786,7 +786,7 @@ void loop() {
       setFace("thinking");
       voiceStreamToServer(_voicePcmBuf, pcmLen);
       // Keep conversation window open for 7s after each successful exchange
-      gConvWindowEnd = millis() + 2000 + 7000;
+      gConvWindowEnd = millis() + 2000 + 15000;
     } else {
       gConvWindowEnd = 0;  // no speech — close window, back to wake word only
     }
