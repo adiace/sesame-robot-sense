@@ -67,12 +67,19 @@ bool wakewordSetup() {
         return false;
     }
 
-    // DET_MODE_95: 95% detection rate (higher recall than DET_MODE_90).
-    // Counter-intuitive: higher number = more sensitive, not stricter.
+    // DET_MODE_95 = Aggressive (higher detection rate than DET_MODE_90 Normal).
     _wn_data = _wn_iface->create(model_name, DET_MODE_95);
     if (!_wn_data) {
         Serial.println("[Wake] Failed to create model instance");
         return false;
+    }
+
+    // Lower the detection threshold below the DET_MODE_95 default (~0.95) for
+    // better recall on a muffled mic. Range: 0.4–0.9999; lower = more detections.
+    if (_wn_iface->set_det_threshold) {
+        _wn_iface->set_det_threshold(_wn_data, 0.5f, 1);
+        float t = _wn_iface->get_det_threshold(_wn_data, 1);
+        Serial.printf("[Wake] Detection threshold set to %.2f\n", t);
     }
 
     _wn_chunk = _wn_iface->get_samp_chunksize(_wn_data);
