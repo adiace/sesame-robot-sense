@@ -67,9 +67,8 @@ bool wakewordSetup() {
         return false;
     }
 
-    // DET_MODE_95: more permissive matching. Needed because the body enclosure
-    // muffles high frequencies — DET_MODE_90 missed "Hi ESP" even with healthy
-    // mic levels (verified via /api/status micRms). Watch for false wakes.
+    // DET_MODE_95: 95% detection rate (higher recall than DET_MODE_90).
+    // Counter-intuitive: higher number = more sensitive, not stricter.
     _wn_data = _wn_iface->create(model_name, DET_MODE_95);
     if (!_wn_data) {
         Serial.println("[Wake] Failed to create model instance");

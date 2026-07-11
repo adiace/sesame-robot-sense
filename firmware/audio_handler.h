@@ -233,20 +233,21 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
     const int CHUNK_PAIRS  = 480;
     const int CHUNK_STEREO = CHUNK_PAIRS * 4;   // bytes to read from I2S
     const int CHUNK_MONO   = CHUNK_PAIRS * 2;   // bytes to write to outBuf
-    const int SILENCE_HOLD = 27;                // silence chunks after speech → stop (~810ms)
+    const int SILENCE_HOLD = 16;                // silence chunks after speech → stop (~480ms)
     const int SPEECH_ARM   = 3;                 // consecutive loud chunks to count as speech (90ms)
     const int PREROLL_CHUNKS = 10;              // leading audio kept before speech starts (300ms)
 
     static int16_t stereoChunk[CHUNK_PAIRS * 2];
 
-    // Flush stale DMA audio (wake beep tail, the "Hi ESP" itself) so it can't
-    // arm the VAD and make a pause before the command look like end-of-speech.
+    // Flush stale DMA audio (wake beep tail + "Hi ESP" itself) before calibrating.
+    // Without this the calibration reads wake-word RMS as the noise floor and
+    // sets speechThresh too high, making the actual command appear as silence.
     {
         size_t got;
         for (int i = 0; i < 8; i++) {
             got = 0;
             i2s_channel_read(_aud_rx, stereoChunk, CHUNK_STEREO, &got, 0);
-            if (got < (size_t)CHUNK_STEREO) break;   // buffer drained
+            if (got < (size_t)CHUNK_STEREO) break;
         }
     }
 
@@ -263,19 +264,18 @@ size_t micRecord(uint8_t* outBuf, size_t maxLen) {
         return *nSamples > 0 ? sqrtf((float)(sum / *nSamples)) : 0.0f;
     };
 
-    // Noise floor comes from the wake feed's rolling ambient EMA — no local
-    // calibration pass. The old ~180ms calibration consumed and discarded
-    // audio, chopping the first word off prompt speakers.
-    // VAD constants tuned at unity gain; scale linearly with MIC_GAIN so the
-    // behavior is identical regardless of the gain setting.
-    // Multiplier 1.5× (was 2.0×): the enclosed mic attenuates speech more than
-    // the (mostly electrical) noise floor, so short quiet words like "stand"
-    // never crossed 2× and recordings ran to the full no-speech cap.
+    // Calibrate noise floor from the first 6 chunks (~180ms) — same approach as
+    // sesame-robot-sense micRecord4s(). The wake task is suspended so the DMA
+    // ring only has room-ambient audio. User hasn't spoken yet (they wait for
+    // the beep before talking), so this captures true ambient, not wake-word RMS.
     static int16_t monoBuf[CHUNK_PAIRS];
-    extern float gAmbientRms;
-    float noiseFloor  = gAmbientRms;
-    float speechThresh = constrain(noiseFloor * 1.5f + 150.0f * MIC_GAIN,
-                                   400.0f * MIC_GAIN, 2000.0f * MIC_GAIN);
+    float noiseSum = 0.0f; int noiseChunks = 0;
+    while (noiseChunks < 6) {
+        int n; float rms = readChunk(monoBuf, &n);
+        if (n > 0) { noiseSum += rms; noiseChunks++; }
+    }
+    float noiseFloor   = noiseSum / noiseChunks;
+    float speechThresh = constrain(noiseFloor * 2.0f + 300.0f, 800.0f, 6000.0f);
     dlog("[Mic] noise=%.0f thresh=%.0f", noiseFloor, speechThresh);
 
     size_t captured   = 0;
